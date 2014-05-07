@@ -39,7 +39,7 @@ namespace DotJEM.Json.Storage
     public interface IStorageContext
     {
         IConfiguration Config { get; }
-        ITableAdapter Area(string name = "Content");
+        IStorageArea Area(string name = "Content");
     }
 
     public class SqlServerStorageContext : IStorageContext
@@ -54,9 +54,9 @@ namespace DotJEM.Json.Storage
             this.connectionString = connectionString;
         }
 
-        public ITableAdapter Area(string name = "Content")
+        public IStorageArea Area(string name = "Content")
         {
-            return new SqlServerTableAdapter(this, name);
+            return new SqlServerStorageArea(this, name);
         }
 
         internal SqlConnection Connection()

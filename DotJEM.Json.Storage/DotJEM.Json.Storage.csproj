@@ -47,7 +47,7 @@
   <ItemGroup>
     <Compile Include="IBsonSerializer.cs" />
     <Compile Include="IStorageContext.cs" />
-    <Compile Include="ITableAdapter.cs" />
+    <Compile Include="IStorageArea.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
