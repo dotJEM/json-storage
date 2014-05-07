@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30324.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage", "DotJEM.Json.Storage\DotJEM.Json.Storage.csproj", "{672D1E1D-C559-4914-B233-807CC7CE3B52}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{A0FA0E9D-C8B1-4761-BF28-29C9C16A6523}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage.Test", "DotJEM.Json.Storage.Test\DotJEM.Json.Storage.Test.csproj", "{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{672D1E1D-C559-4914-B233-807CC7CE3B52}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{672D1E1D-C559-4914-B233-807CC7CE3B52}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{672D1E1D-C559-4914-B233-807CC7CE3B52}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{672D1E1D-C559-4914-B233-807CC7CE3B52}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
