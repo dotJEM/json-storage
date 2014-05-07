@@ -10,11 +10,17 @@ namespace DotJEM.Json.Storage
 {
     public interface ITableAdapter
     {
+        bool Exists { get; }
+
         IEnumerable<JObject> Get(params long[] ids);
         IEnumerable<JObject> Get(string contentType, params long[] ids);
         JObject Insert(string contentType, JObject json);
         JObject Update(long id, string contentType, JObject json);
         int Delete(long id);
+
+
+        bool CreateTable();
+
     }
 
     public class SqlServerTableAdapter : ITableAdapter
@@ -41,44 +47,41 @@ namespace DotJEM.Json.Storage
             public string SelectMultiple { get; private set; }
             public string SelectMultipleByContentType { get; private set; }
             public string CreateTable { get; private set; }
+            public string TableExists { get; private set; }
             // ReSharper restore MemberCanBePrivate.Local
 
-            public Commands(string table)
+            public Commands(string tableFullName, string tableName)
             {
                 //TODO: make table a Parameter
 
                 Update = string.Format("UPDATE {0} SET [{1}] = @{1}, [{2}] = @{2}, [{3}] = @{3} WHERE [{4}] = @{4};",
-                    table, Fields.ContentType, Fields.Updated, Fields.Data, Fields.Id);
+                    tableFullName, Fields.ContentType, Fields.Updated, Fields.Data, Fields.Id);
 
                 Insert = string.Format("INSERT INTO {0} ([{1}], [{2}], [{3}]) VALUES (@{1}, @{2}, @{3}); SELECT SCOPE_IDENTITY();",
-                    table, Fields.ContentType, Fields.Created, Fields.Data);
+                    tableFullName, Fields.ContentType, Fields.Created, Fields.Data);
 
-                Delete = string.Format("DELETE FROM {0} WHERE [{1}] = @{1};", table, Fields.Id);
+                Delete = string.Format("DELETE FROM {0} WHERE [{1}] = @{1};", tableFullName, Fields.Id);
 
                 SelectAllByContentType = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} ORDER BY [{2}];",
-                    table, Fields.ContentType, Fields.Created);
+                    tableFullName, Fields.ContentType, Fields.Created);
 
                 SelectAll = string.Format("SELECT * FROM {0} ORDER BY [{1}];",
-                    table, Fields.Created);
+                    tableFullName, Fields.Created);
 
                 SelectSingleByContentType = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} AND [{2}] = @{2} ORDER BY [{3}];",
-                    table, Fields.Id, Fields.ContentType, Fields.Created);
+                    tableFullName, Fields.Id, Fields.ContentType, Fields.Created);
 
                 SelectSingle = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} ORDER BY [{2}];",
-                    table, Fields.Id, Fields.Created);
+                    tableFullName, Fields.Id, Fields.Created);
 
                 SelectMultipleByContentType = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} AND [{2}] IN ($IDS;) ORDER BY [{3}];",
-                    table, Fields.ContentType, Fields.Id, Fields.Created);
+                    tableFullName, Fields.ContentType, Fields.Id, Fields.Created);
 
                 SelectMultiple = string.Format("SELECT * FROM {0} WHERE [{1}] IN ($IDS;) ORDER BY [{2}];",
-                    table, Fields.Id, Fields.Created);
+                    tableFullName, Fields.Id, Fields.Created);
 
                 CreateTable = string.Format(
-                    @"IF (NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES
-                                       WHERE TABLE_SCHEMA = 'dbo'
-                                         AND TABLE_NAME = '{0}') )
-                      BEGIN
-                        CREATE TABLE [dbo].[{0}] (
+                    @"CREATE TABLE [dbo].[{0}] (
                           [{1}] [bigint] IDENTITY(1,1) NOT NULL,
                           [{2}] [varchar](256) NOT NULL,
                           [{3}] [datetime] NOT NULL,
@@ -90,15 +93,18 @@ namespace DotJEM.Json.Storage
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
                         ) ON [PRIMARY];
 
-
                         CREATE CLUSTERED INDEX [IX_{0}_{2}] ON [dbo].[{0}] (
                           [{2}] ASC
-                        ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];
+                        ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];"
+                    , tableName, Fields.Id, Fields.ContentType, Fields.Created, Fields.Updated, Fields.Data);
 
-                      END;
-                    "
-                    , table ,Fields.Id, Fields.ContentType, Fields.Created, Fields.Updated, Fields.Data);
+                TableExists = string.Format(
+                    @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                               WHERE TABLE_SCHEMA = 'dbo'
+                                 AND TABLE_NAME = '{0}'"
+                    , tableName);
             }
+
 
 
             //IF (NOT EXISTS (SELECT * 
@@ -171,7 +177,7 @@ namespace DotJEM.Json.Storage
             this.context = context;
             using (var conn = context.Connection())
             {
-                commands = new Commands(string.Format("[{0}].[dbo].[{1}]", conn.Database, tableName));
+                commands = new Commands(string.Format("[{0}].[dbo].[{1}]", conn.Database, tableName), tableName);
             }
         }
 
@@ -319,8 +325,11 @@ namespace DotJEM.Json.Storage
         }
 
 
-        public bool EnsureTable()
+        public bool CreateTable()
         {
+            if (Exists)
+                return false;
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
@@ -328,11 +337,26 @@ namespace DotJEM.Json.Storage
                 {
                     command.CommandText = commands.CreateTable;
                     command.ExecuteNonQuery();
-
                 }
             }
+            return true;
+        }
 
-            return false;
+        public bool Exists
+        {
+            get
+            {
+                using (SqlConnection connection = context.Connection())
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandText = commands.TableExists;
+                        object result = command.ExecuteScalar();
+                        return 1 == Convert.ToInt32(result);
+                    }
+                }
+            }
         }
     }
 }
