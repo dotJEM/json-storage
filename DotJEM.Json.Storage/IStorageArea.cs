@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage
 {
-    public interface ITableAdapter
+    public interface IStorageArea
     {
         bool Exists { get; }
 
@@ -23,7 +23,7 @@ namespace DotJEM.Json.Storage
 
     }
 
-    public class SqlServerTableAdapter : ITableAdapter
+    public class SqlServerStorageArea : IStorageArea
     {
         static internal class Fields
         {
@@ -141,7 +141,7 @@ namespace DotJEM.Json.Storage
 
         private readonly Commands commands;
 
-        public SqlServerTableAdapter(SqlServerStorageContext context, string tableName)
+        public SqlServerStorageArea(SqlServerStorageContext context, string tableName)
         {
             this.context = context;
             using (var conn = context.Connection())
