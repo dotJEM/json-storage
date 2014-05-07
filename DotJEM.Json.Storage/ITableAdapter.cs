@@ -105,37 +105,6 @@ namespace DotJEM.Json.Storage
                     , tableName);
             }
 
-
-
-            //IF (NOT EXISTS (SELECT * 
-            //                 FROM INFORMATION_SCHEMA.TABLES 
-            //                 WHERE TABLE_SCHEMA = 'TheSchema' 
-            //                 AND  TABLE_NAME = 'TheTable'))
-            //BEGIN
-            //    --Do Stuff
-            //END
-
-            // CREATE TABLE [dbo].[Content](
-            //     [Id] [bigint] IDENTITY(1,1) NOT NULL,
-            //     [ContentType] [varchar](256) NOT NULL,
-            //     [Created] [datetime] NOT NULL,
-            //     [Updated] [datetime] NULL,
-            //     [Data] [varbinary](max) NOT NULL,
-            //     [Version] [timestamp] NOT NULL,
-            //  CONSTRAINT [PK_Content] PRIMARY KEY NONCLUSTERED 
-            // (
-            //     [Id] ASC
-            // )WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
-            // ) ON [PRIMARY]
-            // GO
-            // SET ANSI_PADDING OFF
-            // GO
-            // CREATE CLUSTERED INDEX [IX_Content_ContentType] ON [dbo].[Content] 
-            // (
-            //     [ContentType] ASC
-            // )WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
-            // GO
-
             public string Select(string contentType, ICollection<long> ids)
             {
                 if (!string.IsNullOrEmpty(contentType))
@@ -360,32 +329,3 @@ namespace DotJEM.Json.Storage
         }
     }
 }
-
-//IF (EXISTS (SELECT * 
-//                 FROM INFORMATION_SCHEMA.TABLES 
-//                 WHERE TABLE_SCHEMA = 'TheSchema' 
-//                 AND  TABLE_NAME = 'TheTable'))
-//BEGIN
-//    --Do Stuff
-//END
-
-// CREATE TABLE [dbo].[Content](
-//     [Id] [bigint] IDENTITY(1,1) NOT NULL,
-//     [ContentType] [varchar](256) NOT NULL,
-//     [Created] [datetime] NOT NULL,
-//     [Updated] [datetime] NULL,
-//     [Data] [varbinary](max) NOT NULL,
-//     [Version] [timestamp] NOT NULL,
-//  CONSTRAINT [PK_Content] PRIMARY KEY NONCLUSTERED 
-// (
-//     [Id] ASC
-// )WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
-// ) ON [PRIMARY]
-// GO
-// SET ANSI_PADDING OFF
-// GO
-// CREATE CLUSTERED INDEX [IX_Content_ContentType] ON [dbo].[Content] 
-// (
-//     [ContentType] ASC
-// )WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
-// GO
