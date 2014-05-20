@@ -11,6 +11,7 @@ namespace DotJEM.Json.Storage.Test
         public void Test()
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            
             IStorageArea table = context.Area("Test");
 
             //Assert.That(table.Exists, Is.False);

@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
+using DotJEM.Json.Storage.Queries;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage
@@ -18,135 +19,23 @@ namespace DotJEM.Json.Storage
         JObject Update(long id, string contentType, JObject json);
         int Delete(long id);
 
-
         bool CreateTable();
-
     }
 
     public class SqlServerStorageArea : IStorageArea
     {
-        static internal class Fields
-        {
-            internal const string Id = "Id";
-            internal const string ContentType = "ContentType";
-            internal const string Created = "Created";
-            internal const string Updated = "Updated";
-            internal const string Data = "Data";
-        }
-
-        private class Commands
-        {
-            // ReSharper disable MemberCanBePrivate.Local
-            public string Update { get; private set; }
-            public string Insert { get; private set; }
-            public string Delete { get; private set; }
-            public string SelectAll { get; private set; }
-            public string SelectAllByContentType { get; private set; }
-            public string SelectSingle { get; private set; }
-            public string SelectSingleByContentType { get; private set; }
-            public string SelectMultiple { get; private set; }
-            public string SelectMultipleByContentType { get; private set; }
-            public string CreateTable { get; private set; }
-            public string TableExists { get; private set; }
-            // ReSharper restore MemberCanBePrivate.Local
-
-            public Commands(string tableFullName, string tableName)
-            {
-                //TODO: make table a Parameter
-
-                Update = string.Format("UPDATE {0} SET [{1}] = @{1}, [{2}] = @{2}, [{3}] = @{3} WHERE [{4}] = @{4};",
-                    tableFullName, Fields.ContentType, Fields.Updated, Fields.Data, Fields.Id);
-
-                Insert = string.Format("INSERT INTO {0} ([{1}], [{2}], [{3}]) VALUES (@{1}, @{2}, @{3}); SELECT SCOPE_IDENTITY();",
-                    tableFullName, Fields.ContentType, Fields.Created, Fields.Data);
-
-                Delete = string.Format("DELETE FROM {0} WHERE [{1}] = @{1};", tableFullName, Fields.Id);
-
-                SelectAllByContentType = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} ORDER BY [{2}];",
-                    tableFullName, Fields.ContentType, Fields.Created);
-
-                SelectAll = string.Format("SELECT * FROM {0} ORDER BY [{1}];",
-                    tableFullName, Fields.Created);
-
-                SelectSingleByContentType = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} AND [{2}] = @{2} ORDER BY [{3}];",
-                    tableFullName, Fields.Id, Fields.ContentType, Fields.Created);
-
-                SelectSingle = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} ORDER BY [{2}];",
-                    tableFullName, Fields.Id, Fields.Created);
-
-                SelectMultipleByContentType = string.Format("SELECT * FROM {0} WHERE [{1}] = @{1} AND [{2}] IN ($IDS;) ORDER BY [{3}];",
-                    tableFullName, Fields.ContentType, Fields.Id, Fields.Created);
-
-                SelectMultiple = string.Format("SELECT * FROM {0} WHERE [{1}] IN ($IDS;) ORDER BY [{2}];",
-                    tableFullName, Fields.Id, Fields.Created);
-
-                CreateTable = string.Format(
-                    @"CREATE TABLE [dbo].[{0}] (
-                          [{1}] [bigint] IDENTITY(1,1) NOT NULL,
-                          [{2}] [varchar](256) NOT NULL,
-                          [{3}] [datetime] NOT NULL,
-                          [{4}] [datetime] NULL,
-                          [{5}] [varbinary](max) NOT NULL,
-                          [Version] [timestamp] NOT NULL,
-                          CONSTRAINT [PK_{0}] PRIMARY KEY NONCLUSTERED (
-                            [Id] ASC
-                          ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
-                        ) ON [PRIMARY];
-
-                        CREATE CLUSTERED INDEX [IX_{0}_{2}] ON [dbo].[{0}] (
-                          [{2}] ASC
-                        ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];"
-                    , tableName, Fields.Id, Fields.ContentType, Fields.Created, Fields.Updated, Fields.Data);
-
-                TableExists = string.Format(
-                    @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-                               WHERE TABLE_SCHEMA = 'dbo'
-                                 AND TABLE_NAME = '{0}'"
-                    , tableName);
-            }
-
-            public string Select(string contentType, ICollection<long> ids)
-            {
-                if (!string.IsNullOrEmpty(contentType))
-                {
-                    return InternalSelectWithContentType(ids);
-                }
-
-                switch (ids.Count)
-                {
-                    case 0: return SelectAll;
-                    case 1: return SelectSingle;
-                    default: return SelectMultiple.Replace("$IDS;", IdsToString(ids));
-                }
-            }
-
-            private string InternalSelectWithContentType(ICollection<long> ids)
-            {
-                switch (ids.Count)
-                {
-                    case 0: return SelectAllByContentType;
-                    case 1: return SelectSingleByContentType;
-                    default: return SelectMultipleByContentType.Replace("$IDS;", IdsToString(ids));
-                }
-            }
-
-            private static string IdsToString(IEnumerable<long> ids)
-            {
-                return string.Join(",", ids.Select(id => id.ToString(CultureInfo.InvariantCulture)));
-            }
-        }
+        private readonly IFields fields = new DefaultFields();
+        private readonly IBsonSerializer serializer = new BsonSerializer();
+        private readonly ICommandFactory commands;
 
         private readonly SqlServerStorageContext context;
-        private readonly IBsonSerializer serializer = new BsonSerializer();
 
-        private readonly Commands commands;
-
-        public SqlServerStorageArea(SqlServerStorageContext context, string tableName)
+        public SqlServerStorageArea(SqlServerStorageContext context, string areaName)
         {
             this.context = context;
             using (var conn = context.Connection())
             {
-                commands = new Commands(string.Format("[{0}].[dbo].[{1}]", conn.Database, tableName), tableName);
+                commands = new SqlServerCommandFactory(string.Format("[{0}].[dbo].[{1}]", conn.Database, areaName), areaName);
             }
         }
 
@@ -165,7 +54,7 @@ namespace DotJEM.Json.Storage
                         return
                             InternalGet(
                                 commands.Select(contentType, ids),
-                                new SqlParameter(Fields.ContentType, contentType));
+                                new SqlParameter(fields.ContentType, contentType));
                     }
                     return InternalGet(commands.Select(contentType, ids));
 
@@ -175,11 +64,11 @@ namespace DotJEM.Json.Storage
                         return
                             InternalGet(
                                 commands.Select(contentType, ids),
-                                new SqlParameter(Fields.Id, ids.Single()),
-                                new SqlParameter(Fields.ContentType, contentType));
+                                new SqlParameter(fields.Id, ids.Single()),
+                                new SqlParameter(fields.ContentType, contentType));
                     }
-                    return InternalGet(commands.SelectSingle,
-                        new SqlParameter(Fields.Id, ids.Single()));
+                    return InternalGet(commands.Select(contentType, ids),
+                        new SqlParameter(fields.Id, ids.Single()));
 
                 //Note: This is a list of Integers, it is rather unlikely that we will suffer from injection attacks.
                 //      this would have to involve an overwrite of the InvarianCulture and the ToString for int on that, if that is even possible? o.O.
@@ -190,7 +79,7 @@ namespace DotJEM.Json.Storage
                     if (!string.IsNullOrEmpty(contentType))
                     {
                         return InternalGet(commands.Select(contentType, ids),
-                            new SqlParameter(Fields.ContentType, contentType));
+                            new SqlParameter(fields.ContentType, contentType));
                     }
                     return InternalGet(commands.Select(contentType, ids));
             }
@@ -206,11 +95,11 @@ namespace DotJEM.Json.Storage
                     command.Parameters.AddRange(parameters);
 
                     SqlDataReader reader = command.ExecuteReader();
-                    int dataColumn = reader.GetOrdinal(Fields.Data);
-                    int idColumn = reader.GetOrdinal(Fields.Id);
-                    int contentTypeColumn = reader.GetOrdinal(Fields.ContentType);
-                    int createdColumn = reader.GetOrdinal(Fields.Created);
-                    int updatedColumn = reader.GetOrdinal(Fields.Updated);
+                    int dataColumn = reader.GetOrdinal(fields.Data);
+                    int idColumn = reader.GetOrdinal(fields.Id);
+                    int contentTypeColumn = reader.GetOrdinal(fields.ContentType);
+                    int createdColumn = reader.GetOrdinal(fields.Created);
+                    int updatedColumn = reader.GetOrdinal(fields.Updated);
 
                     while (reader.Read())
                     {
@@ -237,10 +126,10 @@ namespace DotJEM.Json.Storage
                     ClearMetaData(json);
 
                     DateTime created = DateTime.Now;
-                    command.CommandText = commands.Insert;
-                    command.Parameters.Add(new SqlParameter(Fields.ContentType, SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(Fields.Created, SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(Fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
+                    command.CommandText = commands["Insert"];
+                    command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
+                    command.Parameters.Add(new SqlParameter(fields.Created, SqlDbType.DateTime)).Value = created;
+                    command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
 
                     long id = Convert.ToInt64(command.ExecuteScalar());
                     return Get(contentType, id).Single();
@@ -258,11 +147,11 @@ namespace DotJEM.Json.Storage
                     ClearMetaData(json);
 
                     DateTime updated = DateTime.Now;
-                    command.CommandText = commands.Update;
-                    command.Parameters.Add(new SqlParameter(Fields.ContentType, SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(Fields.Updated, SqlDbType.DateTime)).Value = updated;
-                    command.Parameters.Add(new SqlParameter(Fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
-                    command.Parameters.Add(new SqlParameter(Fields.Id, SqlDbType.BigInt)).Value = id;
+                    command.CommandText = commands["Update"];
+                    command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
+                    command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = updated;
+                    command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
+                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.BigInt)).Value = id;
                     command.ExecuteScalar();
                     return Get(contentType, id).Single();
                 }
@@ -271,7 +160,6 @@ namespace DotJEM.Json.Storage
 
         private void ClearMetaData(JObject json)
         {
-
             //Note: Don't double store these values.
             json.Remove(context.Config.Fields.Id);
             json.Remove(context.Config.Fields.ContentType);
@@ -286,8 +174,8 @@ namespace DotJEM.Json.Storage
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = commands.Delete;
-                    command.Parameters.Add(new SqlParameter(Fields.Id, SqlDbType.BigInt)).Value = id;
+                    command.CommandText = commands["Delete"];
+                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.BigInt)).Value = id;
                     return command.ExecuteNonQuery();
                 }
             }
@@ -304,7 +192,7 @@ namespace DotJEM.Json.Storage
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = commands.CreateTable;
+                    command.CommandText = commands["CreateTable"];
                     command.ExecuteNonQuery();
                 }
             }
@@ -320,7 +208,7 @@ namespace DotJEM.Json.Storage
                     connection.Open();
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
-                        command.CommandText = commands.TableExists;
+                        command.CommandText = commands["TableExists"];
                         object result = command.ExecuteScalar();
                         return 1 == Convert.ToInt32(result);
                     }
