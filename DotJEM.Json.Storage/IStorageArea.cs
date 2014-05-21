@@ -12,6 +12,7 @@ namespace DotJEM.Json.Storage
     public interface IStorageArea
     {
         bool Exists { get; }
+        bool HistoryExists { get; }
 
         IEnumerable<JObject> Get(params long[] ids);
         IEnumerable<JObject> Get(string contentType, params long[] ids);
@@ -20,6 +21,7 @@ namespace DotJEM.Json.Storage
         int Delete(long id);
 
         bool CreateTable();
+        bool CreateHistoryTable();
     }
 
     public class SqlServerStorageArea : IStorageArea
@@ -211,6 +213,40 @@ namespace DotJEM.Json.Storage
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
                         command.CommandText = commands["TableExists"];
+                        object result = command.ExecuteScalar();
+                        return 1 == Convert.ToInt32(result);
+                    }
+                }
+            }
+        }
+
+        public bool CreateHistoryTable()
+        {
+            if (HistoryExists)
+                return false;
+
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    command.CommandText = commands["CreateHistoryTable"];
+                    command.ExecuteNonQuery();
+                }
+            }
+            return true;
+        }
+
+        public bool HistoryExists
+        {
+            get
+            {
+                using (SqlConnection connection = context.Connection())
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandText = commands["HistoryTableExists"];
                         object result = command.ExecuteScalar();
                         return 1 == Convert.ToInt32(result);
                     }

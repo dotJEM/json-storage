@@ -17,6 +17,7 @@ namespace DotJEM.Json.Storage.Test
             //Assert.That(table.Exists, Is.False);
 
             table.CreateTable();
+            table.CreateHistoryTable();
             Assert.That(table.Exists, Is.True);
 
             JObject item = table.Insert("item", JObject.Parse("{ name: 'Potatoes' }"));

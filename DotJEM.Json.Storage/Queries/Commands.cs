@@ -127,6 +127,36 @@ namespace DotJEM.Json.Storage.Queries
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{0}'"
                 , tableName);
+
+
+            self.CreateHistoryTable = bag.Format(
+                @"CREATE TABLE [dbo].[{table}History] (
+                          [{id}] [bigint] IDENTITY(1,1) NOT NULL,
+                          [Fid] [bigint] NOT NULL,
+                          [{version}] [int] NOT NULL,
+                          [{type}] [varchar](256) NOT NULL,
+                          [{created}] [datetime] NOT NULL,
+                          [{data}] [varbinary](max) NOT NULL,
+                          [RV] [rowversion] NOT NULL,
+                          CONSTRAINT [PK_{table}History] PRIMARY KEY NONCLUSTERED (
+                            [Id] ASC
+                          ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
+                        ) ON [PRIMARY];
+
+                        CREATE CLUSTERED INDEX [IX_{table}History_{type}] ON [dbo].[{table}History] (
+                          [{type}] ASC
+                        ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];
+
+                        ALTER TABLE [dbo].[{table}History] WITH NOCHECK ADD  CONSTRAINT [FK_{table}History_{table}] FOREIGN KEY([Fid])
+                              REFERENCES [dbo].[{table}History] ([{id}]);
+
+                        ALTER TABLE [dbo].[{table}History] NOCHECK CONSTRAINT [FK_{table}History_{table}];");
+
+            self.HistoryTableExists = bag.Format(
+                @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                                            WHERE TABLE_SCHEMA = 'dbo'
+                                                AND TABLE_NAME = '{table}History'");
+
         }
 
         public string Select(string contentType, ICollection<long> ids)
