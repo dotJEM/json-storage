@@ -29,6 +29,7 @@ namespace DotJEM.Json.Storage.Util
         private const char ESCAPE = '\\';
         private readonly Dictionary<string, object> values = new Dictionary<string, object>();
 
+        private readonly int pad;
         private readonly int endPad;
         private readonly int startPad;
         private readonly string startPattern;
@@ -72,7 +73,7 @@ namespace DotJEM.Json.Storage.Util
 
             startPad = startPattern.Length;
             endPad = endPattern.Length;
-
+            pad = startPad + endPad;
             FormatIndex = 1;
             DefaultIndex = 2;
             TypeIndex = 3;
@@ -108,10 +109,11 @@ namespace DotJEM.Json.Storage.Util
                 int end = EndOfParameter(temp, start);
                 if (end != -1)
                 {
-                    int s = start + startPad -1;
-                    int e = end - start - 1 - endPad;
-                    string name = temp.Substring(s, e);
-                    Parameter param = new Parameter(name, start, end, this);
+                    int len = end - start;
+                    string name = temp.Substring(start, end - start);
+                    string trimmed = name.Substring(startPad, len - pad);
+
+                    Parameter param = new Parameter(trimmed, start, end, len, this);
                     if (values.ContainsKey(param.Key))
                     {
                         param.Value = values[param.Key];
@@ -156,7 +158,7 @@ namespace DotJEM.Json.Storage.Util
             {
                 if (index > 0 && result[index - 1] == ESCAPE)
                     continue;
-                return index;
+                return index+endPad;
             }
             return -1;
         }
@@ -164,7 +166,7 @@ namespace DotJEM.Json.Storage.Util
         /// <summary>
         /// Sets a value in the property bag for the given key, the value is checked for references to it self, if such referece occures a exception is thrown.
         /// </summary>
-        public void Add(string key, object value)
+        public AdvPropertyBag Add(string key, object value)
         {
             if (string.IsNullOrEmpty(key))
             {
@@ -184,6 +186,7 @@ namespace DotJEM.Json.Storage.Util
                 }
             }
             values[key] = value;
+            return this;
         }
 
         public bool Contains(string key)
@@ -284,9 +287,9 @@ namespace DotJEM.Json.Storage.Util
             public int Align { get; set; }
             public int Lenght { get; private set; }
 
-            public Parameter(string key, int start, int end, AdvPropertyBag bag)
+            public Parameter(string key, int start, int end, int lenght, AdvPropertyBag bag)
             {
-                Lenght = key.Length + 3;
+                Lenght = lenght;
                 string[] args = key.Split('|');
                 Key = args[0];
                 End = end;
@@ -330,126 +333,5 @@ namespace DotJEM.Json.Storage.Util
         }
 
         #endregion
-    }
-
-    public class PropertyBag
-    {
-        private static readonly Dictionary<string, string> values = new Dictionary<string, string>();
-
-        public string this[string key]
-        {
-            get
-            {
-                return Replace(values[key], false);
-            }
-            set
-            {
-                SetValue(key, value);
-            }
-        }
-
-        public string Replace(string input)
-        {
-            return Replace(input, true);
-        }
-
-        public string Replace(string input, bool throwsWhenMissingParameters)
-        {
-            Parameter param;
-            for (int i = 0; (param = RetreiveParameterInString(i, input)) != null; i = param.Start)
-            {
-                input = param.Replace(input, throwsWhenMissingParameters, this);
-            }
-            return input;
-        }
-
-        private Parameter RetreiveParameterInString(int index, string result)
-        {
-            int start = result.IndexOf("$(", index);
-            if (start != -1)
-            {
-                int end = result.IndexOf(")", start);
-                if (end != -1)
-                {
-                    Parameter param = new Parameter(result.Substring(start + 2, (end - start - 2)), start, end);
-                    if (values.ContainsKey(param.Key))
-                    {
-                        param.Value = values[param.Key];
-                    }
-                    return param;
-                }
-            }
-            return null;
-        }
-
-   
-        /// <summary>
-        /// Sets a value in the property bag for the given key, the value is checked for references to it self, if such referece occures a exception is thrown.
-        /// </summary>
-        public void SetValue(string key, string value)
-        {
-            if (string.IsNullOrEmpty(key))
-            {
-                throw new ArgumentException("Cannot set value when Key is null or empty", "key");
-            }
-            if (value == null)
-            {
-                throw new ArgumentException("Cannot set null value", "value");
-            }
-
-            Parameter param;
-            for (int i = 0; (param = RetreiveParameterInString(i, value)) != null; i = param.End)
-            {
-                if (param.Key == key)
-                {
-                    throw new ArgumentException("Value cannot contain a reference to it self");
-                }
-            }
-            values[key] = value;
-        }
-
-        internal class Parameter
-        {
-            public int Start { get; private set; }
-            public int End { get; private set; }
-            public string Key { get; private set; }
-            public string Value { get; set; }
-
-            public int Lenght
-            {
-                get { return End - Start; }
-            }
-
-            public Parameter(string key, int start, int end)
-            {
-                Key = key;
-                End = end;
-                Start = start;
-            }
-
-            public string Replace(string param, bool throwsWhenMissingParameters, PropertyBag properties)
-            {
-                if (Value != null)
-                {
-                    string value = properties.Replace(Value, throwsWhenMissingParameters);
-                    return param.Replace(ToString(), value);
-                }
-                if (throwsWhenMissingParameters)
-                {
-                    throw new ArgumentException(string.Format("Input had an unknown parameter: {0}", this), "param");
-                }
-                return param;
-            }
-
-            public override string ToString()
-            {
-                return "$(" + Key + ")";
-            }
-        }
-
-        public bool ContainsValue(string key)
-        {
-            return values.ContainsKey(key);
-        }
     }
 }

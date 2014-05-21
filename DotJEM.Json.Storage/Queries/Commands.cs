@@ -16,6 +16,7 @@ namespace DotJEM.Json.Storage.Queries
         string Created { get; }
         string Updated { get; }
         string Data { get; }
+        string Version { get; }
     }
 
     public class DefaultFields : IFields
@@ -25,6 +26,7 @@ namespace DotJEM.Json.Storage.Queries
         public string Created { get { return "Created"; } }
         public string Updated { get { return "Updated"; } }
         public string Data { get { return "Data"; } }
+        public string Version { get { return "Version"; } }
     }
 
     public interface ICommandFactory
@@ -63,6 +65,7 @@ namespace DotJEM.Json.Storage.Queries
             self = this;
 
             bag.Add("id", fields.Id);
+            bag.Add("version", fields.Version);
             bag.Add("type", fields.ContentType);
             bag.Add("created", fields.Created);
             bag.Add("updated", fields.Updated);
@@ -71,14 +74,14 @@ namespace DotJEM.Json.Storage.Queries
             bag.Add("table", tableName);
             bag.Add("tf", tableFullName);
 
-            //self.Update = bag.Format("UPDATE {tf} SET [{type}] = @{type}, [{updated}] = @{updated}, [{data}] = @{data} WHERE [{id}] = @{id};");
-            //self.Insert = bag.Format("INSERT INTO {tf} ([{type}], [{created}], [{data}]) VALUES (@{type}, @{created}, @{data}); SELECT SCOPE_IDENTITY();");
+            self.Update = bag.Format("UPDATE {tf} SET [{version}] = [{version}] + 1, [{type}] = @{type}, [{updated}] = @{updated}, [{data}] = @{data} WHERE [{id}] = @{id};");
+            self.Insert = bag.Format("INSERT INTO {tf} ([{version}], [{type}], [{created}], [{data}]) VALUES (1, @{type}, @{created}, @{data}); SELECT SCOPE_IDENTITY();");
             
-            self.Update = string.Format("UPDATE {0} SET [{1}] = @{1}, [{2}] = @{2}, [{3}] = @{3} WHERE [{4}] = @{4};",
-                tableFullName, fields.ContentType, fields.Updated, fields.Data, fields.Id);
+            //self.Update = string.Format("UPDATE {0} SET [{1}] = @{1}, [{2}] = @{2}, [{3}] = @{3} WHERE [{4}] = @{4};",
+            //    tableFullName, fields.ContentType, fields.Updated, fields.Data, fields.Id);
 
-            self.Insert = string.Format("INSERT INTO {0} ([{1}], [{2}], [{3}]) VALUES (@{1}, @{2}, @{3}); SELECT SCOPE_IDENTITY();",
-                tableFullName, fields.ContentType, fields.Created, fields.Data);
+            //self.Insert = string.Format("INSERT INTO {0} ([{1}], [{2}], [{3}]) VALUES (@{1}, @{2}, @{3}); SELECT SCOPE_IDENTITY();",
+            //    tableFullName, fields.ContentType, fields.Created, fields.Data);
             
             self.Delete = string.Format("DELETE FROM {0} WHERE [{1}] = @{1};", tableFullName, fields.Id);
 
@@ -103,11 +106,12 @@ namespace DotJEM.Json.Storage.Queries
             self.CreateTable = string.Format(
                 @"CREATE TABLE [dbo].[{0}] (
                           [{1}] [bigint] IDENTITY(1,1) NOT NULL,
-                          [{2}] [varchar](256) NOT NULL,
-                          [{3}] [datetime] NOT NULL,
-                          [{4}] [datetime] NULL,
-                          [{5}] [varbinary](max) NOT NULL,
-                          [Version] [timestamp] NOT NULL,
+                          [{2}] [int] NOT NULL,
+                          [{3}] [varchar](256) NOT NULL,
+                          [{4}] [datetime] NOT NULL,
+                          [{5}] [datetime] NULL,
+                          [{6}] [varbinary](max) NOT NULL,
+                          [RV] [rowversion] NOT NULL,
                           CONSTRAINT [PK_{0}] PRIMARY KEY NONCLUSTERED (
                             [Id] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
@@ -116,7 +120,7 @@ namespace DotJEM.Json.Storage.Queries
                         CREATE CLUSTERED INDEX [IX_{0}_{2}] ON [dbo].[{0}] (
                           [{2}] ASC
                         ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];"
-                , tableName, fields.Id, fields.ContentType, fields.Created, fields.Updated, fields.Data);
+                , tableName, fields.Id, fields.Version, fields.ContentType, fields.Created, fields.Updated, fields.Data);
 
             self.TableExists = string.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES

@@ -97,6 +97,7 @@ namespace DotJEM.Json.Storage
                     SqlDataReader reader = command.ExecuteReader();
                     int dataColumn = reader.GetOrdinal(fields.Data);
                     int idColumn = reader.GetOrdinal(fields.Id);
+                    int versionColumn = reader.GetOrdinal(fields.Version);
                     int contentTypeColumn = reader.GetOrdinal(fields.ContentType);
                     int createdColumn = reader.GetOrdinal(fields.Created);
                     int updatedColumn = reader.GetOrdinal(fields.Updated);
@@ -105,6 +106,7 @@ namespace DotJEM.Json.Storage
                     {
                         JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
                         json[context.Config.Fields.Id] = reader.GetInt64(idColumn);
+                        json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
                         json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
                         json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
                         json[context.Config.Fields.Updated] = !reader.IsDBNull(updatedColumn) ? (DateTime?)reader.GetDateTime(updatedColumn) : null;

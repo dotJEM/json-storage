@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <Compile Include="Util\AdvPropertyBagTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DotJEM.Json.Storage\DotJEM.Json.Storage.csproj">

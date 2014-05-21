@@ -8,6 +8,7 @@ namespace DotJEM.Json.Storage
         string ContentType { get; set; }
         string Created { get; set; }
         string Updated { get; set; }
+        string Version { get; }
     }
 
     public interface IConfiguration
@@ -26,6 +27,7 @@ namespace DotJEM.Json.Storage
         public string ContentType { get; set; }
         public string Created { get; set; }
         public string Updated { get; set; }
+        public string Version { get; set; }
 
         public Configuration()
         {
@@ -33,6 +35,7 @@ namespace DotJEM.Json.Storage
             ContentType = "_contentType";
             Created = "_created";
             Updated = "_updated";
+            Version = "_version";
         }
     }
 
