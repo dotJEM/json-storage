@@ -12,7 +12,7 @@ namespace DotJEM.Json.Storage.Test
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             
-            IStorageArea table = context.Area("TestArea");
+            IStorageArea table = context.Area("Test");
 
             //Assert.That(table.Exists, Is.False);
 

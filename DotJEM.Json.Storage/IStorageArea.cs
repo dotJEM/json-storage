@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
 using DotJEM.Json.Storage.Queries;
+using DotJEM.Json.Storage.Validation;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage
@@ -34,10 +35,12 @@ namespace DotJEM.Json.Storage
 
         public SqlServerStorageArea(SqlServerStorageContext context, string areaName)
         {
+            Validator.ValidateArea(areaName);
+
             this.context = context;
             using (var conn = context.Connection())
             {
-                commands = new SqlServerCommandFactory(string.Format("[{0}].[dbo].[{1}]", conn.Database, areaName), areaName);
+                commands = new SqlServerCommandFactory(conn.Database, areaName);
             }
         }
 
