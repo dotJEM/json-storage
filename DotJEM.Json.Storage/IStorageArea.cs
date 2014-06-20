@@ -15,14 +15,24 @@ namespace DotJEM.Json.Storage
         bool Exists { get; }
         bool HistoryExists { get; }
 
-        IEnumerable<JObject> Get(params long[] ids);
-        IEnumerable<JObject> Get(string contentType, params long[] ids);
+        IEnumerable<JObject> Get(params Guid[] guids);
+        IEnumerable<JObject> Get(string contentType, params Guid[] guids);
         JObject Insert(string contentType, JObject json);
-        JObject Update(long id, string contentType, JObject json);
-        int Delete(long id);
+        JObject Update(Guid guid, string contentType, JObject json);
+        int Delete(Guid guid);
 
         bool CreateTable();
         bool CreateHistoryTable();
+    }
+
+    public interface IStorageAreaHistory
+    {
+        
+    }
+
+    public class SqlServerStorageAreaHistory : IStorageAreaHistory
+    {
+        
     }
 
     public class SqlServerStorageArea : IStorageArea
@@ -44,36 +54,36 @@ namespace DotJEM.Json.Storage
             }
         }
 
-        public IEnumerable<JObject> Get(params long[] ids)
+        public IEnumerable<JObject> Get(params Guid[] guids)
         {
-            return Get(null, ids);
+            return Get(null, guids);
         }
 
-        public IEnumerable<JObject> Get(string contentType, params long[] ids)
+        public IEnumerable<JObject> Get(string contentType, params Guid[] guids)
         {
-            switch (ids.Length)
+            switch (guids.Length)
             {
                 case 0:
                     if (!string.IsNullOrEmpty(contentType))
                     {
                         return
                             InternalGet(
-                                commands.Select(contentType, ids),
+                                commands.Select(contentType, guids),
                                 new SqlParameter(fields.ContentType, contentType));
                     }
-                    return InternalGet(commands.Select(contentType, ids));
+                    return InternalGet(commands.Select(contentType, guids));
 
                 case 1:
                     if (!string.IsNullOrEmpty(contentType))
                     {
                         return
                             InternalGet(
-                                commands.Select(contentType, ids),
-                                new SqlParameter(fields.Id, ids.Single()),
+                                commands.Select(contentType, guids),
+                                new SqlParameter(fields.Id, guids.Single()),
                                 new SqlParameter(fields.ContentType, contentType));
                     }
-                    return InternalGet(commands.Select(contentType, ids),
-                        new SqlParameter(fields.Id, ids.Single()));
+                    return InternalGet(commands.Select(contentType, guids),
+                        new SqlParameter(fields.Id, guids.Single()));
 
                 //Note: This is a list of Integers, it is rather unlikely that we will suffer from injection attacks.
                 //      this would have to involve an overwrite of the InvarianCulture and the ToString for int on that, if that is even possible? o.O.
@@ -83,10 +93,10 @@ namespace DotJEM.Json.Storage
                 default:
                     if (!string.IsNullOrEmpty(contentType))
                     {
-                        return InternalGet(commands.Select(contentType, ids),
+                        return InternalGet(commands.Select(contentType, guids),
                             new SqlParameter(fields.ContentType, contentType));
                     }
-                    return InternalGet(commands.Select(contentType, ids));
+                    return InternalGet(commands.Select(contentType, guids));
             }
         }
 
@@ -100,6 +110,7 @@ namespace DotJEM.Json.Storage
                     command.Parameters.AddRange(parameters);
 
                     SqlDataReader reader = command.ExecuteReader();
+                    //TODO: Dynamically read columns.
                     int dataColumn = reader.GetOrdinal(fields.Data);
                     int idColumn = reader.GetOrdinal(fields.Id);
                     int versionColumn = reader.GetOrdinal(fields.Version);
@@ -110,7 +121,7 @@ namespace DotJEM.Json.Storage
                     while (reader.Read())
                     {
                         JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-                        json[context.Config.Fields.Id] = reader.GetInt64(idColumn);
+                        json[context.Config.Fields.Id] = reader.GetGuid(idColumn);
                         json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
                         json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
                         json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
@@ -138,13 +149,13 @@ namespace DotJEM.Json.Storage
                     command.Parameters.Add(new SqlParameter(fields.Created, SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
 
-                    long id = Convert.ToInt64(command.ExecuteScalar());
-                    return Get(contentType, id).Single();
+                    Guid guid = (Guid) command.ExecuteScalar();
+                    return Get(contentType, guid).Single();
                 }
             }
         }
 
-        public JObject Update(long id, string contentType, JObject json)
+        public JObject Update(Guid id, string contentType, JObject json)
         {
             using (SqlConnection connection = context.Connection())
             {
@@ -158,7 +169,7 @@ namespace DotJEM.Json.Storage
                     command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = updated;
                     command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
-                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.BigInt)).Value = id;
+                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = id;
                     command.ExecuteScalar();
                     return Get(contentType, id).Single();
                 }
@@ -174,7 +185,7 @@ namespace DotJEM.Json.Storage
             json.Remove(context.Config.Fields.Updated);
         }
 
-        public int Delete(long id)
+        public int Delete(Guid guid)
         {
             using (SqlConnection connection = context.Connection())
             {
@@ -182,12 +193,11 @@ namespace DotJEM.Json.Storage
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
                     command.CommandText = commands["Delete"];
-                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.BigInt)).Value = id;
+                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = guid;
                     return command.ExecuteNonQuery();
                 }
             }
         }
-
 
         public bool CreateTable()
         {
