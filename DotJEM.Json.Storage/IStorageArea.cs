@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.Remoting.Messaging;
 using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
 using Newtonsoft.Json.Linq;
@@ -19,7 +20,7 @@ namespace DotJEM.Json.Storage
         IEnumerable<JObject> Get(string contentType, params Guid[] guids);
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, string contentType, JObject json);
-        int Delete(Guid guid);
+        bool Delete(Guid guid);
 
         bool CreateTable();
         bool CreateHistoryTable();
@@ -109,26 +110,33 @@ namespace DotJEM.Json.Storage
                 {
                     command.Parameters.AddRange(parameters);
 
-                    SqlDataReader reader = command.ExecuteReader();
                     //TODO: Dynamically read columns.
-                    int dataColumn = reader.GetOrdinal(fields.Data);
-                    int idColumn = reader.GetOrdinal(fields.Id);
-                    int versionColumn = reader.GetOrdinal(fields.Version);
-                    int contentTypeColumn = reader.GetOrdinal(fields.ContentType);
-                    int createdColumn = reader.GetOrdinal(fields.Created);
-                    int updatedColumn = reader.GetOrdinal(fields.Updated);
-
-                    while (reader.Read())
-                    {
-                        JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-                        json[context.Config.Fields.Id] = reader.GetGuid(idColumn);
-                        json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
-                        json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
-                        json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
-                        json[context.Config.Fields.Updated] = !reader.IsDBNull(updatedColumn) ? (DateTime?)reader.GetDateTime(updatedColumn) : null;
+                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
                         yield return json;
-                    }
                 }
+            }
+        }
+
+        private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
+        {
+            int dataColumn = reader.GetOrdinal(fields.Data);
+            int idColumn = reader.GetOrdinal(fields.Id);
+            int versionColumn = reader.GetOrdinal(fields.Version);
+            int contentTypeColumn = reader.GetOrdinal(fields.ContentType);
+            int createdColumn = reader.GetOrdinal(fields.Created);
+            int updatedColumn = reader.GetOrdinal(fields.Updated);
+
+            while (reader.Read())
+            {
+                JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
+                json[context.Config.Fields.Id] = reader.GetGuid(idColumn);
+                json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
+                json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
+                json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
+                json[context.Config.Fields.Updated] = !reader.IsDBNull(updatedColumn)
+                    ? (DateTime?) reader.GetDateTime(updatedColumn)
+                    : null;
+                yield return json;
             }
         }
 
@@ -149,10 +157,29 @@ namespace DotJEM.Json.Storage
                     command.Parameters.Add(new SqlParameter(fields.Created, SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
 
-                    Guid guid = (Guid) command.ExecuteScalar();
-                    return Get(contentType, guid).Single();
+                    return RunDataReader(command.ExecuteReader()).Single();
                 }
             }
+        }
+
+        private JObject ReadPrefixedRow(string prefix, SqlDataReader reader)
+        {
+            int dataColumn = reader.GetOrdinal(prefix + "_" + fields.Data);
+            int idColumn = reader.GetOrdinal(prefix + "_" + fields.Id);
+            int versionColumn = reader.GetOrdinal(prefix + "_" + fields.Version);
+            int contentTypeColumn = reader.GetOrdinal(prefix + "_" + fields.ContentType);
+            int createdColumn = reader.GetOrdinal(prefix + "_" + fields.Created);
+            int updatedColumn = reader.GetOrdinal(prefix + "_" + fields.Updated);
+
+                JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
+                json[context.Config.Fields.Id] = reader.GetGuid(idColumn);
+                json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
+                json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
+                json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
+                json[context.Config.Fields.Updated] = !reader.IsDBNull(updatedColumn)
+                    ? (DateTime?)reader.GetDateTime(updatedColumn)
+                    : null;
+                return json;
         }
 
         public JObject Update(Guid id, string contentType, JObject json)
@@ -164,16 +191,28 @@ namespace DotJEM.Json.Storage
                 {
                     ClearMetaData(json);
 
-                    DateTime updated = DateTime.Now;
                     command.CommandText = commands["Update"];
                     command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = updated;
+                    command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = DateTime.Now;
                     command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
                     command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = id;
-                    command.ExecuteScalar();
-                    return Get(contentType, id).Single();
+
+                    SqlDataReader reader = command.ExecuteReader();
+                    if (reader.Read())
+                    {
+                        JObject updated = ReadPrefixedRow("INSERTED", reader);
+                        //TODO: If history is enabled, store record in history.
+                        if (fields.ContentType == "HolyBoly")
+                            RecordHistory(id, updated);
+                        return ReadPrefixedRow("DELETED", reader);
+                    }
                 }
             }
+            throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+        }
+
+        private void RecordHistory(Guid id, JObject updated)
+        {
         }
 
         private void ClearMetaData(JObject json)
@@ -185,7 +224,7 @@ namespace DotJEM.Json.Storage
             json.Remove(context.Config.Fields.Updated);
         }
 
-        public int Delete(Guid guid)
+        public bool Delete(Guid guid)
         {
             using (SqlConnection connection = context.Connection())
             {
@@ -194,7 +233,10 @@ namespace DotJEM.Json.Storage
                 {
                     command.CommandText = commands["Delete"];
                     command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = guid;
-                    return command.ExecuteNonQuery();
+                    var deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
+                    if (fields.ContentType == "HolyBoly")
+                        RecordHistory(guid, deleted);
+                    return deleted != null;
                 }
             }
         }

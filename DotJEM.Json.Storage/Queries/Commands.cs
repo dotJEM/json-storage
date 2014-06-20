@@ -73,11 +73,17 @@ namespace DotJEM.Json.Storage.Queries
                 .Add("from", "[{db}].[dbo].[{table}]");
 
             //TODO: Replace with a command builder pattern.
-            self.Update = vars.Format("UPDATE {from} SET [{version}] = [{version}] + 1, [{type}] = @{type}, [{updated}] = @{updated}, [{data}] = @{data} WHERE [{id}] = @{id};");
-            self.Insert = vars.Format("INSERT INTO {from} ([{version}], [{type}], [{created}], [{data}]) OUTPUT Inserted.[{id}] VALUES (1, @{type}, @{created}, @{data});");
-            //INSERT INTO Table (Fields) OUTPUT INSERTED.* VALUES (FieldValues)
+            self.Insert = vars.Format("INSERT INTO {from} ([{version}], [{type}], [{created}], [{data}]) OUTPUT INSERTED.* VALUES (1, @{type}, @{created}, @{data});");
+            self.Update = vars.Format(
+                "UPDATE {from} SET [{version}] = [{version}] + 1, [{type}] = @{type}, [{updated}] = @{updated}, [{data}] = @{data}"
+                          + " OUTPUT"
+                          + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{version}] as [DELETED_{version}], DELETED.[{type}] as [DELETED_{type}],"
+                          + "   DELETED.[{created}] as [DELETED_{created}], DELETED.[{updated}] as [DELETED_{updated}], DELETED.[{data}] as [DELETED_{data}],"
+                          + "   INSERTED.[{id}] as [INSERTED_{id}], INSERTED.[{version}] as [INSERTED_{version}], INSERTED.[{type}] as [INSERTED_{type}],"
+                          + "   INSERTED.[{created}] as [INSERTED_{created}], INSERTED.[{updated}] as [INSERTED_{updated}], INSERTED.[{data}] as [INSERTED_{data}]"
+                          + " WHERE [{id}] = @{id};");
+            self.Delete = vars.Format("DELETE FROM {from} OUTPUT DELETED.* WHERE [{id}] = @{id};");
 
-            self.Delete = vars.Format("DELETE FROM {from} WHERE [{id}] = @{id};");
             self.SelectAll = vars.Format("SELECT * FROM {from} ORDER BY [{created}];");
             self.SelectAllByContentType = vars.Format("SELECT * FROM {from} WHERE [{type}] = @{type} ORDER BY [{created}];");
             self.SelectSingle = vars.Format("SELECT * FROM {from} WHERE [{id}] = @{id} ORDER BY [{created}];");
