@@ -25,6 +25,8 @@ namespace DotJEM.Json.Storage.Test
             //cfg.From.File("");
             //cfg.From.AppConfig();
             
+            //cfg.For.Area("").HistoryDecorator(new JObjectDecorator());
+             
 
             //Assert.That(table.Initialized, Is.False);
 

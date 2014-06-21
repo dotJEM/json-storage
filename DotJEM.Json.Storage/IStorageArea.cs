@@ -28,12 +28,39 @@ namespace DotJEM.Json.Storage
 
     public interface IStorageAreaHistory
     {
-        
+        IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? from = null, DateTime? to = null);
+        void Insert(Guid id, string contentType, DateTime created, JObject obj);
     }
 
     public class SqlServerStorageAreaHistory : IStorageAreaHistory
     {
-        
+        private readonly IFields fields = new DefaultFields();
+        private readonly IBsonSerializer serializer = new BsonSerializer();
+        private readonly ICommandFactory commands;
+        private readonly SqlServerStorageContext context; 
+
+        public IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? @from = null, DateTime? to = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Insert(Guid id, string contentType, DateTime created, JObject obj)
+        {
+            
+        }
+    }
+
+    public class NullStorageAreaHistory : IStorageAreaHistory
+    {
+        public IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? @from = null, DateTime? to = null)
+        {
+            throw new  InvalidOperationException("History must be enabled for an area in order to query history data.");
+        }
+
+        public void Insert(Guid id, string contentType, DateTime created, JObject obj)
+        {
+            
+        }
     }
 
     public class SqlServerStorageArea : IStorageArea
@@ -43,6 +70,7 @@ namespace DotJEM.Json.Storage
         private readonly ICommandFactory commands;
 
         private readonly SqlServerStorageContext context;
+        private readonly IStorageAreaHistory history = new NullStorageAreaHistory();
 
         public SqlServerStorageArea(SqlServerStorageContext context, string areaName)
         {
@@ -191,30 +219,24 @@ namespace DotJEM.Json.Storage
                 {
                     ClearMetaData(json);
 
+                    DateTime updateTime = DateTime.Now;
                     command.CommandText = commands["Update"];
                     command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = DateTime.Now;
+                    command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = updateTime;
                     command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
                     command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = id;
 
                     SqlDataReader reader = command.ExecuteReader();
                     if (reader.Read())
                     {
-                        JObject updated = ReadPrefixedRow("INSERTED", reader);
-                        //TODO: If history is enabled, store record in history.
-                        if (fields.ContentType == "HolyBoly")
-                            RecordHistory(id, updated);
+                        history.Insert(id, contentType, updateTime, ReadPrefixedRow("INSERTED", reader));
                         return ReadPrefixedRow("DELETED", reader);
                     }
                 }
             }
             throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
         }
-
-        private void RecordHistory(Guid id, JObject updated)
-        {
-        }
-
+ 
         private void ClearMetaData(JObject json)
         {
             //Note: Don't double store these values.
@@ -234,11 +256,14 @@ namespace DotJEM.Json.Storage
                     command.CommandText = commands["Delete"];
                     command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = guid;
                     var deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
-                    if (fields.ContentType == "HolyBoly")
-                        RecordHistory(guid, deleted);
-                    return deleted != null;
+                    if (deleted != null)
+                    {
+                        history.Insert(guid, deleted[fields.ContentType].ToObject<string>(), DateTime.Now, deleted);
+                        return true;
+                    }
                 }
             }
+            return false;
         }
 
         public bool Initialize()
