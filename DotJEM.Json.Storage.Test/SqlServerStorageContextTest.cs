@@ -26,11 +26,11 @@ namespace DotJEM.Json.Storage.Test
             //cfg.From.AppConfig();
             
 
-            //Assert.That(table.Exists, Is.False);
+            //Assert.That(table.Initialized, Is.False);
 
-            area.CreateTable();
+            area.Initialize();
             area.CreateHistoryTable();
-            Assert.That(area.Exists, Is.True);
+            Assert.That(area.Initialized, Is.True);
 
             JObject item = area.Insert("item", JObject.Parse("{ name: 'Potatoes' }"));
             JObject item2 = area.Get("item").First();

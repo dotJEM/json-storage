@@ -13,7 +13,7 @@ namespace DotJEM.Json.Storage
 {
     public interface IStorageArea
     {
-        bool Exists { get; }
+        bool Initialized { get; }
         bool HistoryExists { get; }
 
         IEnumerable<JObject> Get(params Guid[] guids);
@@ -22,7 +22,7 @@ namespace DotJEM.Json.Storage
         JObject Update(Guid guid, string contentType, JObject json);
         bool Delete(Guid guid);
 
-        bool CreateTable();
+        bool Initialize();
         bool CreateHistoryTable();
     }
 
@@ -241,9 +241,9 @@ namespace DotJEM.Json.Storage
             }
         }
 
-        public bool CreateTable()
+        public bool Initialize()
         {
-            if (Exists)
+            if (Initialized)
                 return false;
 
             using (SqlConnection connection = context.Connection())
@@ -251,14 +251,14 @@ namespace DotJEM.Json.Storage
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = commands["CreateTable"];
+                    command.CommandText = commands["Initialize"];
                     command.ExecuteNonQuery();
                 }
             }
             return true;
         }
 
-        public bool Exists
+        public bool Initialized
         {
             get
             {
