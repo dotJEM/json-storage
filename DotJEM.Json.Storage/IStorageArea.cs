@@ -28,8 +28,14 @@ namespace DotJEM.Json.Storage
 
     public interface IStorageAreaHistory
     {
+        IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
         IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? from = null, DateTime? to = null);
         void Insert(Guid id, string contentType, DateTime created, JObject obj);
+    }
+
+    public enum History
+    {
+        Update, Delete
     }
 
     public class SqlServerStorageAreaHistory : IStorageAreaHistory
@@ -40,6 +46,11 @@ namespace DotJEM.Json.Storage
         private readonly SqlServerStorageContext context; 
 
         public IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? @from = null, DateTime? to = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
         {
             throw new NotImplementedException();
         }
@@ -55,6 +66,11 @@ namespace DotJEM.Json.Storage
         public IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? @from = null, DateTime? to = null)
         {
             throw new  InvalidOperationException("History must be enabled for an area in order to query history data.");
+        }
+
+        public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
+        {
+            throw new InvalidOperationException("History must be enabled for an area in order to query history data.");
         }
 
         public void Insert(Guid id, string contentType, DateTime created, JObject obj)
