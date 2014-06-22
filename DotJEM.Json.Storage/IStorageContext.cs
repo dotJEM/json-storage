@@ -5,7 +5,7 @@ namespace DotJEM.Json.Storage
 {
     public interface IStorageContext
     {
-        IConfiguration Config { get; }
+        IStorageConfiguration Configuration { get; }
         IStorageArea Area(string name = "Content");
     }
 
@@ -13,16 +13,17 @@ namespace DotJEM.Json.Storage
     {
         private readonly string connectionString;
 
-        public IConfiguration Config { get; private set; }
+        public IStorageConfiguration Configuration { get; private set; }
 
         public SqlServerStorageContext(string connectionString)
         {
-            Config = new Configuration.Configuration();
+            Configuration = new StorageConfiguration();
             this.connectionString = connectionString;
         }
 
         public IStorageArea Area(string name = "Content")
         {
+            //TODO: Cache configurations?
             return new SqlServerStorageArea(this, name);
         }
 

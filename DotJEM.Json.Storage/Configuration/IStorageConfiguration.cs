@@ -5,6 +5,16 @@ namespace DotJEM.Json.Storage.Configuration
         
     }
 
+    public enum StorageField
+    {
+        Id,
+        Version,
+        ContentType,
+        Created,
+        Updated,
+        Data
+    }
+
     public interface IFieldNames
     {
         string Id { get; set; }
@@ -14,13 +24,21 @@ namespace DotJEM.Json.Storage.Configuration
         string Updated { get; set; }
     }
 
-    public interface IConfiguration
+    public interface IStorageConfiguration
     {
+        IStorageConfiguration MapField(StorageField field, string name);
+
+
         IFieldNames Fields { get; }
     }
 
-    public class Configuration : IConfiguration, IFieldNames
+    public class StorageConfiguration : IStorageConfiguration, IFieldNames
     {
+        public IStorageConfiguration MapField(StorageField field, string name)
+        {
+            return this;
+        }
+
         public IFieldNames Fields
         {
             get { return this; }
@@ -32,7 +50,7 @@ namespace DotJEM.Json.Storage.Configuration
         public string Updated { get; set; }
         public string Version { get; set; }
 
-        public Configuration()
+        public StorageConfiguration()
         {
             Id = "_id";
             ContentType = "_contentType";

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using DotJEM.Json.Storage.Configuration;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
@@ -14,7 +15,8 @@ namespace DotJEM.Json.Storage.Test
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             
             IStorageArea area = context.Area("GuidBasedIds");
-            var cfg = context.Config;
+            IStorageConfiguration config = context.Configuration;
+
 
             //cfg.Configure(From.File('asdasd'));
             //cfg.Configure(From.Appconfig());

@@ -47,7 +47,7 @@
   <ItemGroup>
     <Compile Include="Configuration\FieldsConfiguration.cs" />
     <Compile Include="IBsonSerializer.cs" />
-    <Compile Include="Configuration\IConfiguration.cs" />
+    <Compile Include="Configuration\IStorageConfiguration.cs" />
     <Compile Include="IStorageContext.cs" />
     <Compile Include="IStorageArea.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -173,11 +173,11 @@ namespace DotJEM.Json.Storage
             while (reader.Read())
             {
                 JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-                json[context.Config.Fields.Id] = reader.GetGuid(idColumn);
-                json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
-                json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
-                json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
-                json[context.Config.Fields.Updated] = !reader.IsDBNull(updatedColumn)
+                json[context.Configuration.Fields.Id] = reader.GetGuid(idColumn);
+                json[context.Configuration.Fields.Version] = reader.GetInt32(versionColumn);
+                json[context.Configuration.Fields.ContentType] = reader.GetString(contentTypeColumn);
+                json[context.Configuration.Fields.Created] = reader.GetDateTime(createdColumn);
+                json[context.Configuration.Fields.Updated] = !reader.IsDBNull(updatedColumn)
                     ? (DateTime?) reader.GetDateTime(updatedColumn)
                     : null;
                 yield return json;
@@ -216,11 +216,11 @@ namespace DotJEM.Json.Storage
             int updatedColumn = reader.GetOrdinal(prefix + "_" + fields.Updated);
 
                 JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-                json[context.Config.Fields.Id] = reader.GetGuid(idColumn);
-                json[context.Config.Fields.Version] = reader.GetInt32(versionColumn);
-                json[context.Config.Fields.ContentType] = reader.GetString(contentTypeColumn);
-                json[context.Config.Fields.Created] = reader.GetDateTime(createdColumn);
-                json[context.Config.Fields.Updated] = !reader.IsDBNull(updatedColumn)
+                json[context.Configuration.Fields.Id] = reader.GetGuid(idColumn);
+                json[context.Configuration.Fields.Version] = reader.GetInt32(versionColumn);
+                json[context.Configuration.Fields.ContentType] = reader.GetString(contentTypeColumn);
+                json[context.Configuration.Fields.Created] = reader.GetDateTime(createdColumn);
+                json[context.Configuration.Fields.Updated] = !reader.IsDBNull(updatedColumn)
                     ? (DateTime?)reader.GetDateTime(updatedColumn)
                     : null;
                 return json;
@@ -256,10 +256,10 @@ namespace DotJEM.Json.Storage
         private void ClearMetaData(JObject json)
         {
             //Note: Don't double store these values.
-            json.Remove(context.Config.Fields.Id);
-            json.Remove(context.Config.Fields.ContentType);
-            json.Remove(context.Config.Fields.Created);
-            json.Remove(context.Config.Fields.Updated);
+            json.Remove(context.Configuration.Fields.Id);
+            json.Remove(context.Configuration.Fields.ContentType);
+            json.Remove(context.Configuration.Fields.Created);
+            json.Remove(context.Configuration.Fields.Updated);
         }
 
         public bool Delete(Guid guid)
@@ -292,7 +292,7 @@ namespace DotJEM.Json.Storage
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = commands["Initialize"];
+                    command.CommandText = commands["CreateTable"];
                     command.ExecuteNonQuery();
                 }
             }
