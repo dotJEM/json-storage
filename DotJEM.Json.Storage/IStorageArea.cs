@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.Globalization;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
+using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
 using Newtonsoft.Json.Linq;
@@ -13,144 +12,235 @@ namespace DotJEM.Json.Storage
 {
     public interface IStorageArea
     {
-        bool Initialized { get; }
-        bool HistoryExists { get; }
+        //bool Initialized { get; }
+        //bool Initialize();
 
-        IEnumerable<JObject> Get(params Guid[] guids);
-        IEnumerable<JObject> Get(string contentType, params Guid[] guids);
+        IEnumerable<JObject> Get();
+        IEnumerable<JObject> Get(string contentType);
+        JObject Get(Guid guid);
+
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, string contentType, JObject json);
         bool Delete(Guid guid);
 
-        bool Initialize();
-        bool CreateHistoryTable();
+        //bool HistoryExists { get; }
+        //bool CreateHistoryTable();
     }
 
     public interface IStorageAreaHistory
     {
-        IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
-        IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? from = null, DateTime? to = null);
-        void Insert(Guid id, string contentType, DateTime created, JObject obj);
-    }
+        //bool Initialized { get; }
+        //bool Initialize();
 
-    public enum History
-    {
-        Update, Delete
+        IEnumerable<JObject> Get(Guid guid, DateTime? from = null, DateTime? to = null);
+        IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
+        void Create(JObject json, bool deleted);
     }
 
     public class SqlServerStorageAreaHistory : IStorageAreaHistory
     {
-        private readonly IFields fields = new DefaultFields();
-        private readonly IBsonSerializer serializer = new BsonSerializer();
-        private readonly ICommandFactory commands;
-        private readonly SqlServerStorageContext context; 
+        private bool initialized;
+        private readonly SqlServerStorageArea area;
+        private readonly SqlServerStorageContext context;
 
-        public IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? @from = null, DateTime? to = null)
+        public SqlServerStorageAreaHistory(SqlServerStorageArea area, SqlServerStorageContext context)
         {
+            this.area = area;
+            this.context = context;
+        }
+
+        public IEnumerable<JObject> Get(Guid guid, DateTime? @from = null, DateTime? to = null)
+        {
+            EnsureTable();
+
             throw new NotImplementedException();
         }
 
         public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
         {
+            EnsureTable();
+
             throw new NotImplementedException();
         }
 
-        public void Insert(Guid id, string contentType, DateTime created, JObject obj)
+        public void Create(JObject json, bool deleted)
         {
-            
+            var fields = context.Configuration.Fields;
+            Guid guid = json[fields[JsonField.Id]].ToObject<Guid>();
+            int version = json[fields[JsonField.Version]].ToObject<int>();
+            string contentType = json[fields[JsonField.ContentType]].ToObject<string>();
+            DateTime created = json[fields[JsonField.Created]].ToObject<DateTime>();
+
+            JToken updatedToken = json[fields[JsonField.Updated]];
+            object updated = updatedToken.Type == JTokenType.Null ? (object) DBNull.Value : json[fields[JsonField.Updated]].ToObject<DateTime>();
+
+            //Note: Don't double store these values. 
+            //      Here we clear them in case that we wan't to store a copy of an object.
+            ExecuteDecorators(json);
+            ClearMetaData(json);
+
+            EnsureTable();
+
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    command.CommandText = area.Commands["InsertHistory"];
+                    command.Parameters.Add(new SqlParameter(HistoryField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
+                    command.Parameters.Add(new SqlParameter(StorageField.Version.ToString(), SqlDbType.Int)).Value = version;
+                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
+                    command.Parameters.Add(new SqlParameter(HistoryField.Deleted.ToString(), SqlDbType.Bit)).Value = deleted;
+                    command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
+                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updated;
+                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        private void ExecuteDecorators(JObject json)
+        {
+            context.Configuration.Area(area.Name);
+        }
+
+        private void ClearMetaData(JObject json)
+        {
+            var fields = context.Configuration.Fields;
+            json.Remove(fields[JsonField.Id]);
+            json.Remove(fields[JsonField.Version]);
+            json.Remove(fields[JsonField.ContentType]);
+            json.Remove(fields[JsonField.Created]);
+            json.Remove(fields[JsonField.Updated]);
+        }
+
+        private void EnsureTable()
+        {
+            if (initialized)
+                return;
+
+            if (!TableExists)
+                CreateTable();
+
+            initialized = true;
+        }
+
+        private bool TableExists
+        {
+            get
+            {
+                using (SqlConnection connection = context.Connection())
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandText = area.Commands["HistoryTableExists"];
+                        object result = command.ExecuteScalar();
+                        return 1 == Convert.ToInt32(result);
+                    }
+                }
+            }
+        }
+
+        private void CreateTable()
+        {
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    command.CommandText = area.Commands["CreateHistoryTable"];
+                    command.ExecuteNonQuery();
+                }
+            }
         }
     }
 
     public class NullStorageAreaHistory : IStorageAreaHistory
     {
-        public IEnumerable<JObject> Get(string contentType, Guid guid, DateTime? @from = null, DateTime? to = null)
-        {
-            throw new  InvalidOperationException("History must be enabled for an area in order to query history data.");
-        }
-
-        public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
+        private IEnumerable<JObject> ThrowError()
         {
             throw new InvalidOperationException("History must be enabled for an area in order to query history data.");
         }
 
-        public void Insert(Guid id, string contentType, DateTime created, JObject obj)
+        public bool Initialized { get { return false; } }
+
+        public bool Initialize()
         {
-            
+            return ThrowError().Any();
+        }
+
+        public IEnumerable<JObject> Get(Guid guid, DateTime? @from = null, DateTime? to = null)
+        {
+            return ThrowError();
+        }
+
+        public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
+        {
+            return ThrowError();
+        }
+
+        public void Create(JObject json, bool deleted)
+        {
+
         }
     }
 
     public class SqlServerStorageArea : IStorageArea
     {
-        private readonly IFields fields = new DefaultFields();
-        private readonly IBsonSerializer serializer = new BsonSerializer();
-        private readonly ICommandFactory commands;
-
+        private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly IStorageAreaHistory history = new NullStorageAreaHistory();
 
-        public SqlServerStorageArea(SqlServerStorageContext context, string areaName)
+        public string Name { get; private set; }
+        internal ICommandFactory Commands { get; private set; }
+
+        public SqlServerStorageArea(SqlServerStorageContext context, string name)
         {
-            Validator.ValidateArea(areaName);
+            Name = name;
+            Validator.ValidateArea(name);
 
             this.context = context;
             using (var conn = context.Connection())
             {
-                commands = new SqlServerCommandFactory(conn.Database, areaName);
+                Commands = new SqlServerCommandFactory(conn.Database, name);
             }
-        }
 
-        public IEnumerable<JObject> Get(params Guid[] guids)
-        {
-            return Get(null, guids);
-        }
-
-        public IEnumerable<JObject> Get(string contentType, params Guid[] guids)
-        {
-            switch (guids.Length)
+            if (context.Configuration.Area(name).HistoryEnabled)
             {
-                case 0:
-                    if (!string.IsNullOrEmpty(contentType))
-                    {
-                        return
-                            InternalGet(
-                                commands.Select(contentType, guids),
-                                new SqlParameter(fields.ContentType, contentType));
-                    }
-                    return InternalGet(commands.Select(contentType, guids));
-
-                case 1:
-                    if (!string.IsNullOrEmpty(contentType))
-                    {
-                        return
-                            InternalGet(
-                                commands.Select(contentType, guids),
-                                new SqlParameter(fields.Id, guids.Single()),
-                                new SqlParameter(fields.ContentType, contentType));
-                    }
-                    return InternalGet(commands.Select(contentType, guids),
-                        new SqlParameter(fields.Id, guids.Single()));
-
-                //Note: This is a list of Integers, it is rather unlikely that we will suffer from injection attacks.
-                //      this would have to involve an overwrite of the InvarianCulture and the ToString for int on that, if that is even possible? o.O.
-                //
-                //  Besides, we might just wan't to simplify this and use Lucene instead for multi doc retrieval.
-
-                default:
-                    if (!string.IsNullOrEmpty(contentType))
-                    {
-                        return InternalGet(commands.Select(contentType, guids),
-                            new SqlParameter(fields.ContentType, contentType));
-                    }
-                    return InternalGet(commands.Select(contentType, guids));
+                history = new SqlServerStorageAreaHistory(this, context);
             }
         }
 
-        private IEnumerable<JObject> InternalGet(string commandText, params SqlParameter[] parameters)
+        public IEnumerable<JObject> Get()
         {
+            return InternalGet("SelectAll");
+        }
+
+        public IEnumerable<JObject> Get(string contentType)
+        {
+            if (contentType == null) 
+                throw new ArgumentNullException("contentType");
+
+            return InternalGet("SelectAllByContentType",
+                new SqlParameter(StorageField.ContentType.ToString(), contentType));
+        }
+
+        public JObject Get(Guid guid)
+        {
+            return InternalGet("SelectSingle", 
+                new SqlParameter(StorageField.Id.ToString(), guid))
+                .SingleOrDefault();
+        }
+
+        private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
+        {
+            EnsureTable();
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand(commandText, connection))
+                using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
                 {
                     command.Parameters.AddRange(parameters);
 
@@ -161,145 +251,143 @@ namespace DotJEM.Json.Storage
             }
         }
 
-        private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
-        {
-            int dataColumn = reader.GetOrdinal(fields.Data);
-            int idColumn = reader.GetOrdinal(fields.Id);
-            int versionColumn = reader.GetOrdinal(fields.Version);
-            int contentTypeColumn = reader.GetOrdinal(fields.ContentType);
-            int createdColumn = reader.GetOrdinal(fields.Created);
-            int updatedColumn = reader.GetOrdinal(fields.Updated);
-
-            while (reader.Read())
-            {
-                JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-                json[context.Configuration.Fields.Id] = reader.GetGuid(idColumn);
-                json[context.Configuration.Fields.Version] = reader.GetInt32(versionColumn);
-                json[context.Configuration.Fields.ContentType] = reader.GetString(contentTypeColumn);
-                json[context.Configuration.Fields.Created] = reader.GetDateTime(createdColumn);
-                json[context.Configuration.Fields.Updated] = !reader.IsDBNull(updatedColumn)
-                    ? (DateTime?) reader.GetDateTime(updatedColumn)
-                    : null;
-                yield return json;
-            }
-        }
-
         public JObject Insert(string contentType, JObject json)
         {
+            //Note: Don't double store these values. 
+            //      Here we clear them in case that we wan't to store a copy of an object.
+            ClearMetaData(json);
+
+            EnsureTable();
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    //Note: Don't double store these values. 
-                    //      Here we clear them in case that we wan't to store a copy of an object.
-                    ClearMetaData(json);
-
                     DateTime created = DateTime.Now;
-                    command.CommandText = commands["Insert"];
-                    command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(fields.Created, SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
+                    command.CommandText = Commands["Insert"];
+                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
+                    command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
+                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
 
                     return RunDataReader(command.ExecuteReader()).Single();
                 }
             }
         }
 
-        private JObject ReadPrefixedRow(string prefix, SqlDataReader reader)
-        {
-            int dataColumn = reader.GetOrdinal(prefix + "_" + fields.Data);
-            int idColumn = reader.GetOrdinal(prefix + "_" + fields.Id);
-            int versionColumn = reader.GetOrdinal(prefix + "_" + fields.Version);
-            int contentTypeColumn = reader.GetOrdinal(prefix + "_" + fields.ContentType);
-            int createdColumn = reader.GetOrdinal(prefix + "_" + fields.Created);
-            int updatedColumn = reader.GetOrdinal(prefix + "_" + fields.Updated);
-
-                JObject json = serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-                json[context.Configuration.Fields.Id] = reader.GetGuid(idColumn);
-                json[context.Configuration.Fields.Version] = reader.GetInt32(versionColumn);
-                json[context.Configuration.Fields.ContentType] = reader.GetString(contentTypeColumn);
-                json[context.Configuration.Fields.Created] = reader.GetDateTime(createdColumn);
-                json[context.Configuration.Fields.Updated] = !reader.IsDBNull(updatedColumn)
-                    ? (DateTime?)reader.GetDateTime(updatedColumn)
-                    : null;
-                return json;
-        }
-
         public JObject Update(Guid id, string contentType, JObject json)
         {
+            //Note: Don't double store these values. 
+            //      Here we clear them in case that we wan't to store a copy of an object.
+            ClearMetaData(json);
+
+            EnsureTable();
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    ClearMetaData(json);
 
                     DateTime updateTime = DateTime.Now;
-                    command.CommandText = commands["Update"];
-                    command.Parameters.Add(new SqlParameter(fields.ContentType, SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(fields.Updated, SqlDbType.DateTime)).Value = updateTime;
-                    command.Parameters.Add(new SqlParameter(fields.Data, SqlDbType.VarBinary)).Value = serializer.Serialize(json);
-                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = id;
+                    command.CommandText = Commands["Update"];
+                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
+                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
+                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
                     SqlDataReader reader = command.ExecuteReader();
-                    if (reader.Read())
-                    {
-                        history.Insert(id, contentType, updateTime, ReadPrefixedRow("INSERTED", reader));
-                        return ReadPrefixedRow("DELETED", reader);
-                    }
+                    if (!reader.Read()) 
+                        throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+
+                    history.Create(ReadPrefixedRow("DELETED", reader), false);
+                    return ReadPrefixedRow("INSERTED", reader);
                 }
             }
-            throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
-        }
- 
-        private void ClearMetaData(JObject json)
-        {
-            //Note: Don't double store these values.
-            json.Remove(context.Configuration.Fields.Id);
-            json.Remove(context.Configuration.Fields.ContentType);
-            json.Remove(context.Configuration.Fields.Created);
-            json.Remove(context.Configuration.Fields.Updated);
         }
 
         public bool Delete(Guid guid)
         {
+            EnsureTable();
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = commands["Delete"];
-                    command.Parameters.Add(new SqlParameter(fields.Id, SqlDbType.UniqueIdentifier)).Value = guid;
-                    var deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
-                    if (deleted != null)
-                    {
-                        history.Insert(guid, deleted[fields.ContentType].ToObject<string>(), DateTime.Now, deleted);
-                        return true;
-                    }
+                    command.CommandText = Commands["Delete"];
+                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
+                    JObject deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
+                    if (deleted == null) 
+                        return false;
+
+                    history.Create(deleted, true);
+                    return true;
                 }
             }
-            return false;
         }
 
-        public bool Initialize()
+        internal void ClearMetaData(JObject json)
         {
-            if (Initialized)
-                return false;
-
-            using (SqlConnection connection = context.Connection())
-            {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    command.CommandText = commands["CreateTable"];
-                    command.ExecuteNonQuery();
-                }
-            }
-            return true;
+            var fields = context.Configuration.Fields;
+            json.Remove(fields[JsonField.Id]);
+            json.Remove(fields[JsonField.Version]);
+            json.Remove(fields[JsonField.ContentType]);
+            json.Remove(fields[JsonField.Created]);
+            json.Remove(fields[JsonField.Updated]);
         }
 
-        public bool Initialized
+        private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
+        {
+            int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
+            int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
+            int versionColumn = reader.GetOrdinal(StorageField.Version.ToString());
+            int contentTypeColumn = reader.GetOrdinal(StorageField.ContentType.ToString());
+            int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
+            int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
+            while (reader.Read())
+            {
+                yield return CreateJson(reader, dataColumn, idColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
+            }
+        }
+
+        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
+        {
+            JObject json;
+            json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
+            json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
+            json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
+            json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
+            json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
+            json[context.Configuration.Fields[JsonField.Updated]] = !reader.IsDBNull(updatedColumn)
+                ? (DateTime?)reader.GetDateTime(updatedColumn)
+                : null;
+            return json;
+        }
+
+        private JObject ReadPrefixedRow(string prefix, SqlDataReader reader)
+        {
+            int dataColumn = reader.GetOrdinal(prefix + "_" + StorageField.Data);
+            int idColumn = reader.GetOrdinal(prefix + "_" + StorageField.Id);
+            int versionColumn = reader.GetOrdinal(prefix + "_" + StorageField.Version);
+            int contentTypeColumn = reader.GetOrdinal(prefix + "_" + StorageField.ContentType);
+            int createdColumn = reader.GetOrdinal(prefix + "_" + StorageField.Created);
+            int updatedColumn = reader.GetOrdinal(prefix + "_" + StorageField.Updated);
+            return CreateJson(reader, dataColumn, idColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
+        }
+
+        private void EnsureTable()
+        {
+            if(initialized)
+                return;
+
+            if (!TableExists)
+                CreateTable();
+
+            initialized = true;
+        }
+
+        private bool TableExists
         {
             get
             {
@@ -308,44 +396,23 @@ namespace DotJEM.Json.Storage
                     connection.Open();
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
-                        command.CommandText = commands["TableExists"];
+                        command.CommandText = Commands["TableExists"];
                         object result = command.ExecuteScalar();
                         return 1 == Convert.ToInt32(result);
                     }
                 }
-            }
+            }          
         }
 
-        public bool CreateHistoryTable()
+        private void CreateTable()
         {
-            if (HistoryExists)
-                return false;
-
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = commands["CreateHistoryTable"];
+                    command.CommandText = Commands["CreateTable"];
                     command.ExecuteNonQuery();
-                }
-            }
-            return true;
-        }
-
-        public bool HistoryExists
-        {
-            get
-            {
-                using (SqlConnection connection = context.Connection())
-                {
-                    connection.Open();
-                    using (SqlCommand command = new SqlCommand { Connection = connection })
-                    {
-                        command.CommandText = commands["HistoryTableExists"];
-                        object result = command.ExecuteScalar();
-                        return 1 == Convert.ToInt32(result);
-                    }
                 }
             }
         }

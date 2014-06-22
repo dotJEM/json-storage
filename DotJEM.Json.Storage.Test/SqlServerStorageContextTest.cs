@@ -14,8 +14,13 @@ namespace DotJEM.Json.Storage.Test
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             
-            IStorageArea area = context.Area("GuidBasedIds");
             IStorageConfiguration config = context.Configuration;
+            config.MapField(JsonField.Id, "id");
+
+            config.Area("TestArea2")
+                .EnableHistory();
+
+            IStorageArea area = context.Area("TestArea2");
 
 
             //cfg.Configure(From.File('asdasd'));
@@ -32,16 +37,15 @@ namespace DotJEM.Json.Storage.Test
 
             //Assert.That(table.Initialized, Is.False);
 
-            area.Initialize();
-            area.CreateHistoryTable();
-            Assert.That(area.Initialized, Is.True);
 
-            JObject item = area.Insert("item", JObject.Parse("{ name: 'Potatoes' }"));
-            JObject item2 = area.Get("item").First();
+
+            dynamic item = area.Insert("Item", JObject.Parse("{ name: 'Potatoes' }"));
+            dynamic item1 = area.Update(item.id.ToObject<Guid>(), "Item", JObject.Parse("{ name: 'Potatoes', count: 10 }"));
+            JObject item2 = area.Get("Item").First();
 
             Assert.That(item, Is.EqualTo(item2));
 
-            JObject item3 = area.Update(item["_id"].ToObject<Guid>(), "item", item2);
+            JObject item3 = area.Update(item.id.ToObject<Guid>(), "item", item2);
             //Assert.That(item2, Is.EqualTo(item3));
 
         }

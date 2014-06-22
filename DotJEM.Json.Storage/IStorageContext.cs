@@ -14,10 +14,14 @@ namespace DotJEM.Json.Storage
         private readonly string connectionString;
 
         public IStorageConfiguration Configuration { get; private set; }
+        public IBsonSerializer Serializer { get; private set; }
+
 
         public SqlServerStorageContext(string connectionString)
         {
+            Serializer = new BsonSerializer();
             Configuration = new StorageConfiguration();
+
             this.connectionString = connectionString;
         }
 
