@@ -1,64 +1,13 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Configuration
 {
-    public interface IStorageAreaConfiguration
-    {
-        bool HistoryEnabled { get; }
-        IHistoryEnabledStorageArea EnableHistory();
-    }
-
-    public interface IHistoryEnabledStorageArea : IStorageAreaConfiguration
-    {
-        IHistoryEnabledStorageArea RegisterDecorator(string name, IJObjectDecorator decorator);
-    }
-
-    public class StorageAreaConfiguration : IHistoryEnabledStorageArea
-    {
-        private readonly List<IJObjectDecorator> decorators = new List<IJObjectDecorator>();
-        
-        public bool HistoryEnabled { get; private set; }
-        public IEnumerable<IJObjectDecorator> Decorators { get { return decorators.AsReadOnly(); } } 
-
-        public IHistoryEnabledStorageArea EnableHistory()
-        {
-            HistoryEnabled = true;
-            return this;
-        }
-
-        public IHistoryEnabledStorageArea RegisterDecorator<T>(string name) where T : IJObjectDecorator, new()
-        {
-            return RegisterDecorator(name, new T());
-        }
-
-        public IHistoryEnabledStorageArea RegisterDecorator(string name, IJObjectDecorator decorator)
-        {
-            decorators.Add(decorator);
-            return this;
-        }
-    }
-
-    public interface IJObjectDecorator
-    {
-        JObject Decorate(JObject obj);
-    }
-
-    public enum JsonField
-    {
-        Id,
-        Version,
-        ContentType,
-        Created,
-        Updated
-    }
-
     public interface IStorageConfiguration
     {
         IDictionary<JsonField, string> Fields { get; }
         IStorageConfiguration MapField(JsonField field, string name);
-        IStorageAreaConfiguration Area(string name);
+        IStorageAreaConfiguration Area(string name = "Content");
     }
 
     public class StorageConfiguration : IStorageConfiguration
@@ -88,7 +37,7 @@ namespace DotJEM.Json.Storage.Configuration
             return this;
         }
 
-        public IStorageAreaConfiguration Area(string name)
+        public IStorageAreaConfiguration Area(string name = "Content")
         {
             return configurations.ContainsKey(name) ? configurations[name] : (configurations[name] = new StorageAreaConfiguration());
         }

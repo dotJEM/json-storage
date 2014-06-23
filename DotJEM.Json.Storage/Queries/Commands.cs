@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Dynamic;
-using System.Linq;
 using DotJEM.Json.Storage.Util;
 
 namespace DotJEM.Json.Storage.Queries
@@ -21,8 +19,6 @@ namespace DotJEM.Json.Storage.Queries
         Fid,
         Deleted
     }
-
-
 
     public interface ICommandFactory
     {
