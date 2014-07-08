@@ -297,8 +297,10 @@ namespace DotJEM.Json.Storage
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
                     SqlDataReader reader = command.ExecuteReader();
-                    if (!reader.Read()) 
+                    if (!reader.HasRows) 
                         throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+
+                    reader.Read();
 
                     history.Create(ReadPrefixedRow("DELETED", reader), false);
                     return ReadPrefixedRow("INSERTED", reader);
