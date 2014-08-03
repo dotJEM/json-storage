@@ -21,7 +21,7 @@ namespace DotJEM.Json.Storage
 
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, string contentType, JObject json);
-        bool Delete(Guid guid);
+        JObject Delete(Guid guid);
 
         //bool HistoryExists { get; }
         //bool CreateHistoryTable();
@@ -308,7 +308,7 @@ namespace DotJEM.Json.Storage
             }
         }
 
-        public bool Delete(Guid guid)
+        public JObject Delete(Guid guid)
         {
             EnsureTable();
 
@@ -320,11 +320,11 @@ namespace DotJEM.Json.Storage
                     command.CommandText = Commands["Delete"];
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
                     JObject deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
-                    if (deleted == null) 
-                        return false;
+                    if (deleted == null)
+                        return null;
 
                     history.Create(deleted, true);
-                    return true;
+                    return deleted;
                 }
             }
         }
