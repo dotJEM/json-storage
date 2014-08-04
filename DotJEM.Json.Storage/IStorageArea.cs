@@ -12,6 +12,8 @@ namespace DotJEM.Json.Storage
 {
     public interface IStorageArea
     {
+        string Name { get; }
+
         //bool Initialized { get; }
         //bool Initialize();
 
@@ -193,6 +195,7 @@ namespace DotJEM.Json.Storage
         private readonly IStorageAreaHistory history = new NullStorageAreaHistory();
 
         public string Name { get; private set; }
+      
         internal ICommandFactory Commands { get; private set; }
 
         public SqlServerStorageArea(SqlServerStorageContext context, string name)
