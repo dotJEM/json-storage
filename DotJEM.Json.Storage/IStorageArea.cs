@@ -14,9 +14,6 @@ namespace DotJEM.Json.Storage
     {
         string Name { get; }
 
-        //bool Initialized { get; }
-        //bool Initialize();
-
         IEnumerable<JObject> Get();
         IEnumerable<JObject> Get(string contentType);
         JObject Get(Guid guid);
@@ -24,16 +21,10 @@ namespace DotJEM.Json.Storage
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, string contentType, JObject json);
         JObject Delete(Guid guid);
-
-        //bool HistoryExists { get; }
-        //bool CreateHistoryTable();
     }
 
     public interface IStorageAreaHistory
     {
-        //bool Initialized { get; }
-        //bool Initialize();
-
         IEnumerable<JObject> Get(Guid guid, DateTime? from = null, DateTime? to = null);
         IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
         void Create(JObject json, bool deleted);
@@ -76,9 +67,10 @@ namespace DotJEM.Json.Storage
             JToken updatedToken = json[fields[JsonField.Updated]];
             object updated = updatedToken.Type == JTokenType.Null ? (object) DBNull.Value : json[fields[JsonField.Updated]].ToObject<DateTime>();
 
+            json = ExecuteDecorators(json);
+
             //Note: Don't double store these values. 
             //      Here we clear them in case that we wan't to store a copy of an object.
-            ExecuteDecorators(json);
             ClearMetaData(json);
 
             EnsureTable();
@@ -101,9 +93,10 @@ namespace DotJEM.Json.Storage
             }
         }
 
-        private void ExecuteDecorators(JObject json)
+        private JObject ExecuteDecorators(JObject json)
         {
-            context.Configuration.Area(area.Name);
+            IHistoryEnabledStorageAreaConfiguration config = (IHistoryEnabledStorageAreaConfiguration) context.Configuration.Area(area.Name);
+            return config.Decorators.Aggregate(json, (obj, decorator) => decorator.Decorate(obj));
         }
 
         private void ClearMetaData(JObject json)
@@ -209,7 +202,7 @@ namespace DotJEM.Json.Storage
                 Commands = new SqlServerCommandFactory(conn.Database, name);
             }
 
-            if (context.Configuration.Area(name).HistoryEnabled)
+            if (context.Configuration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
             }

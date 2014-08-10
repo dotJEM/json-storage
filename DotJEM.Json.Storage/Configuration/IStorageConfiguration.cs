@@ -3,18 +3,27 @@ using System.Collections.ObjectModel;
 
 namespace DotJEM.Json.Storage.Configuration
 {
+    public interface IStorageConfigurator
+    {
+        IStorageConfigurator MapField(JsonField field, string name);
+        IStorageAreaConfigurator Area(string name = "content");
+    }
+
     public interface IStorageConfiguration
     {
         IDictionary<JsonField, string> Fields { get; }
-        IStorageConfiguration MapField(JsonField field, string name);
-        IStorageAreaConfiguration Area(string name = "Content");
     }
 
-    public class StorageConfiguration : IStorageConfiguration
+    public class StorageConfiguration : IStorageConfiguration, IStorageConfigurator
     {
         private readonly IDictionary<JsonField, string> readonlyFields;
         private readonly IDictionary<JsonField, string> fields = new Dictionary<JsonField, string>();
-        private readonly IDictionary<string, IStorageAreaConfiguration> configurations = new Dictionary<string, IStorageAreaConfiguration>();
+        private readonly IDictionary<string, StorageAreaConfiguration> configurations = new Dictionary<string, StorageAreaConfiguration>();
+
+        public StorageAreaConfiguration this[string key]
+        {
+            get { return configurations.ContainsKey(key) ? configurations[key] : (configurations[key] = new StorageAreaConfiguration()); }
+        }
 
         public StorageConfiguration()
         {
@@ -31,15 +40,18 @@ namespace DotJEM.Json.Storage.Configuration
             get { return readonlyFields; }
         }
 
-        public IStorageConfiguration MapField(JsonField field, string name)
+        public IStorageConfigurator MapField(JsonField field, string name)
         {
             fields[field] = name;
             return this;
         }
 
-        public IStorageAreaConfiguration Area(string name = "Content")
+        public IStorageAreaConfigurator Area(string name = "content")
         {
-            return configurations.ContainsKey(name) ? configurations[name] : (configurations[name] = new StorageAreaConfiguration());
+            IStorageAreaConfiguration configuration = this[name];
+            return configuration.Configurator;
         }
+
+        
     }
 }

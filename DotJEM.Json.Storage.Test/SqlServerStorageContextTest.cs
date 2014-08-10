@@ -14,7 +14,7 @@ namespace DotJEM.Json.Storage.Test
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             
-            IStorageConfiguration config = context.Configuration;
+            IStorageConfigurator config = context.Configure;
             config.MapField(JsonField.Id, "id");
 
             config.Area("TestArea2")

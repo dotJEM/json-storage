@@ -2,36 +2,52 @@ using System.Collections.Generic;
 
 namespace DotJEM.Json.Storage.Configuration
 {
+    public interface IStorageAreaConfigurator
+    {
+        IHistoryEnabledStorageAreaConfigurator EnableHistory();
+    }
+
     public interface IStorageAreaConfiguration
     {
+        IStorageAreaConfigurator Configurator { get; }
+
         bool HistoryEnabled { get; }
-        IHistoryEnabledStorageArea EnableHistory();
     }
 
-    public interface IHistoryEnabledStorageArea : IStorageAreaConfiguration
+    public interface IHistoryEnabledStorageAreaConfigurator : IStorageAreaConfigurator
     {
-        IHistoryEnabledStorageArea RegisterDecorator(IJObjectDecorator decorator);
+        IHistoryEnabledStorageAreaConfiguration RegisterDecorator(IJObjectDecorator decorator);
     }
 
-    public class StorageAreaConfiguration : IHistoryEnabledStorageArea
+    public interface IHistoryEnabledStorageAreaConfiguration : IStorageAreaConfiguration
+    {
+        new IHistoryEnabledStorageAreaConfigurator Configurator { get; }
+
+        IEnumerable<IJObjectDecorator> Decorators { get; }
+    }
+
+    public class StorageAreaConfiguration : IHistoryEnabledStorageAreaConfiguration, IHistoryEnabledStorageAreaConfigurator
     {
         private readonly List<IJObjectDecorator> decorators = new List<IJObjectDecorator>();
+
+        IStorageAreaConfigurator IStorageAreaConfiguration.Configurator { get { return this; } }
+        IHistoryEnabledStorageAreaConfigurator IHistoryEnabledStorageAreaConfiguration.Configurator { get { return this; } }
 
         public bool HistoryEnabled { get; private set; }
         public IEnumerable<IJObjectDecorator> Decorators { get { return decorators.AsReadOnly(); } }
 
-        public IHistoryEnabledStorageArea EnableHistory()
+        public IHistoryEnabledStorageAreaConfigurator EnableHistory()
         {
             HistoryEnabled = true;
             return this;
         }
 
-        public IHistoryEnabledStorageArea RegisterDecorator<T>() where T : IJObjectDecorator, new()
+        public IHistoryEnabledStorageAreaConfiguration RegisterDecorator<T>() where T : IJObjectDecorator, new()
         {
             return RegisterDecorator(new T());
         }
 
-        public IHistoryEnabledStorageArea RegisterDecorator(IJObjectDecorator decorator)
+        public IHistoryEnabledStorageAreaConfiguration RegisterDecorator(IJObjectDecorator decorator)
         {
             decorators.Add(decorator);
             return this;
