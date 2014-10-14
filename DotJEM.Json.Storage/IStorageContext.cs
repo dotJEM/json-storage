@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using DotJEM.Json.Storage.Configuration;
 
@@ -7,16 +8,20 @@ namespace DotJEM.Json.Storage
     {
         IStorageConfigurator Configure { get; }
         IStorageArea Area(string name = "content");
+        bool Release(string name = "content");
     }
 
     public class SqlServerStorageContext : IStorageContext
     {
         private readonly string connectionString;
+        private readonly Dictionary<string, IStorageArea> openAreas = new Dictionary<string, IStorageArea>(); 
 
         public IStorageConfigurator Configure { get { return Configuration; } }
         public IBsonSerializer Serializer { get; private set; }
         
         internal StorageConfiguration Configuration { get; private set; }
+
+
 
         public SqlServerStorageContext(string connectionString)
         {
@@ -28,8 +33,14 @@ namespace DotJEM.Json.Storage
 
         public IStorageArea Area(string name = "content")
         {
-            //TODO: Cache configurations?
-            return new SqlServerStorageArea(this, name);
+            if (!openAreas.ContainsKey(name))
+                return openAreas[name] = new SqlServerStorageArea(this, name);
+            return openAreas[name];
+        }
+
+        public bool Release(string name = "content")
+        {
+            return openAreas.Remove(name);
         }
 
         internal SqlConnection Connection()
