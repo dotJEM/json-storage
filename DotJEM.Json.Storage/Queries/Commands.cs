@@ -7,6 +7,7 @@ namespace DotJEM.Json.Storage.Queries
     public enum StorageField
     {
         Id,
+        Reference,
         Version,
         ContentType,
         Created,
@@ -54,6 +55,7 @@ namespace DotJEM.Json.Storage.Queries
             self = this;
 
             vars.Add("id", StorageField.Id)
+                .Add("reference", StorageField.Reference)
                 .Add("version", StorageField.Version)
                 .Add("type", StorageField.ContentType)
                 .Add("created", StorageField.Created)
@@ -64,10 +66,19 @@ namespace DotJEM.Json.Storage.Queries
                 .Add("deleted", HistoryField.Deleted);
 
             vars.Add("tableName", table)
-                .Add("historyTableName", "{tableName}History")
+                .Add("historyTableName", "{tableName}.history")
+                .Add("seedTableName", "{tableName}.seed")
                 .Add("db", database)
                 .Add("tableFullName", "[{db}].[dbo].[{tableName}]")
-                .Add("historyTableFullName", "[{db}].[dbo].[{historyTableName}]");
+                .Add("historyTableFullName", "[{db}].[dbo].[{historyTableName}]")
+                .Add("seedTableFullName", "[{db}].[dbo].[{seedTableName}]");
+
+            self.Seed = vars.Format("UPDATE {seedTableFullName} SET [Seed] = [Seed] + 1 OUTPUT INSERTED.[Seed] WHERE [{type}] = @{type}");
+                
+    //            UPDATE [nsw].[dbo].[content.seeds]
+    //SET [Seed] = [Seed] + 1
+    //OUTPUT INSERTED.[Seed]
+    //WHERE [ContentType] = 'test';
 
             //TODO: Replace with a command builder pattern.
             self.Insert = vars.Format("INSERT INTO {tableFullName} ([{version}], [{type}], [{created}], [{data}]) OUTPUT INSERTED.* VALUES (1, @{type}, @{created}, @{data});");
@@ -90,6 +101,7 @@ namespace DotJEM.Json.Storage.Queries
             self.CreateTable = vars.Format(
                 @"CREATE TABLE [dbo].[{tableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
+                          [{reference}] [varchar](32) NOT NULL,
                           [{version}] [int] NOT NULL,
                           [{type}] [varchar](256) NOT NULL,
                           [{created}] [datetime] NOT NULL,
@@ -97,7 +109,7 @@ namespace DotJEM.Json.Storage.Queries
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
                           CONSTRAINT [PK_{tableName}] PRIMARY KEY NONCLUSTERED (
-                            [Id] ASC
+                            [{id}] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
                         ) ON [PRIMARY];
 
@@ -112,6 +124,18 @@ namespace DotJEM.Json.Storage.Queries
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{tableName}'");
 
+            self.CreateSeedsTable = vars.Format(
+                @"CREATE TABLE [dbo].[content.seeds](
+	                    [{id}] [uniqueidentifier] NOT NULL CONSTRAINT [DF_content.seeds_Id] DEFAULT (newid()),
+	                    [{type}] [varchar](256) NOT NULL,
+	                    [Seed] [bigint] NOT NULL CONSTRAINT [DF_content.seeds_Seed]  DEFAULT ((1)),
+	                    [RV] [rowversion] NOT NULL,
+                     CONSTRAINT [PK_content.seeds] PRIMARY KEY NONCLUSTERED 
+                    (
+	                    [{id}] ASC
+                    )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+                    ) ON [PRIMARY]");
+
 
             // HISTORY STUFF
             self.InsertHistory = vars.Format("INSERT INTO {historyTableFullName} ([{fid}], [{version}], [{type}], [{deleted}], [{created}], [{updated}], [{data}])"
@@ -123,6 +147,7 @@ namespace DotJEM.Json.Storage.Queries
             self.CreateHistoryTable = vars.Format(
                 @"CREATE TABLE [dbo].[{historyTableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
+                          [{reference}] [varchar](32) NOT NULL,
                           [{fid}] [uniqueidentifier] NOT NULL,
                           [{version}] [int] NOT NULL,
                           [{type}] [varchar](256) NOT NULL,
@@ -132,7 +157,7 @@ namespace DotJEM.Json.Storage.Queries
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
                           CONSTRAINT [PK_{historyTableName}] PRIMARY KEY NONCLUSTERED (
-                            [Id] ASC
+                            [{id}] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
                         ) ON [PRIMARY];
 
