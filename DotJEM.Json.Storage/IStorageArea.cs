@@ -71,7 +71,7 @@ namespace DotJEM.Json.Storage
 
             //Note: Don't double store these values. 
             //      Here we clear them in case that we wan't to store a copy of an object.
-            ClearMetaData(json);
+            //ClearMetaData(json);
 
             EnsureTable();
 
@@ -243,6 +243,8 @@ namespace DotJEM.Json.Storage
                     //TODO: Dynamically read columns.
                     foreach (JObject json in RunDataReader(command.ExecuteReader()))
                         yield return json;
+
+                    command.Parameters.Clear();
                 }
             }
         }
