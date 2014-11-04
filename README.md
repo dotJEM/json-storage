@@ -9,10 +9,12 @@ The basic concept will be:
 IStorageContext context = new SqlServerStorageContext("...");
 ITableAdapter area = context.Area("Test");
 
-JObject item = area.Insert("item", JObject.Parse("{ name: 'Potatoes' }"));
-JObject item2 = area.Get("item").First();
+JObject item = area.Insert("item", JObject.Parse("{ name: 'Potatoes' }")); //Normally you would recieve a JObject from a client.
+JObject item2 = area.Get("item").First(); //Query all...
+JObject item3 = area.Get("item", item.Id); //Query by ID...
 
 Assert.That(item, Is.EqualTo(item2));
+Assert.That(item, Is.EqualTo(item3));
 ```
 
 For indexing and Querying use a Reverse index, e.g: https://github.com/dotJEM/json-index
