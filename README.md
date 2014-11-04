@@ -17,7 +17,8 @@ Assert.That(item, Is.EqualTo(item2));
 Assert.That(item, Is.EqualTo(item3));
 ```
 
-For indexing and Querying use a Reverse index, e.g: https://github.com/dotJEM/json-index
+For indexing and Querying use a Reverse index, e.g: Lucene
+For easy indexing JSON in lucene in C#, use: https://github.com/dotJEM/json-index
 
 Disclaimer: Only if you must!
 =============================
