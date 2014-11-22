@@ -45,13 +45,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Adapter\IStorageAreaHistory.cs" />
     <Compile Include="Configuration\IJObjectDecorator.cs" />
     <Compile Include="Configuration\IStorageAreaConfiguration.cs" />
     <Compile Include="Configuration\JsonField.cs" />
     <Compile Include="IBsonSerializer.cs" />
     <Compile Include="Configuration\IStorageConfiguration.cs" />
     <Compile Include="IStorageContext.cs" />
-    <Compile Include="IStorageArea.cs" />
+    <Compile Include="Adapter\IStorageArea.cs" />
     <Compile Include="Linq\QueryableStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Util\AdvPropertyBag.cs" />

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Configuration;
 
 namespace DotJEM.Json.Storage
@@ -20,8 +21,6 @@ namespace DotJEM.Json.Storage
         public IBsonSerializer Serializer { get; private set; }
         
         internal StorageConfiguration Configuration { get; private set; }
-
-
 
         public SqlServerStorageContext(string connectionString)
         {

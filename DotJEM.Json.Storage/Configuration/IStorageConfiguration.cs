@@ -27,11 +27,12 @@ namespace DotJEM.Json.Storage.Configuration
 
         public StorageConfiguration()
         {
-            MapField(JsonField.Id, "_id");
-            MapField(JsonField.Version, "_version");
-            MapField(JsonField.ContentType, "_contentType");
-            MapField(JsonField.Created, "_created");
-            MapField(JsonField.Updated, "_updated");
+            MapField(JsonField.Id, "$id");
+            MapField(JsonField.Version, "$version");
+            MapField(JsonField.ContentType, "$contentType");
+            MapField(JsonField.Created, "$created");
+            MapField(JsonField.Updated, "$updated");
+            MapField(JsonField.Area, "$area");
             readonlyFields = new ReadOnlyDictionary<JsonField, string>(fields);
         }
 

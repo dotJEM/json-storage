@@ -8,11 +8,12 @@ using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
 using Newtonsoft.Json.Linq;
 
-namespace DotJEM.Json.Storage
+namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageArea
     {
         string Name { get; }
+        IStorageAreaHistory History { get; }
 
         IEnumerable<JObject> Get();
         IEnumerable<JObject> Get(string contentType);
@@ -23,172 +24,25 @@ namespace DotJEM.Json.Storage
         JObject Delete(Guid guid);
     }
 
-    public interface IStorageAreaHistory
-    {
-        IEnumerable<JObject> Get(Guid guid, DateTime? from = null, DateTime? to = null);
-        IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
-        void Create(JObject json, bool deleted);
-    }
-
-    public class SqlServerStorageAreaHistory : IStorageAreaHistory
-    {
-        private bool initialized;
-        private readonly SqlServerStorageArea area;
-        private readonly SqlServerStorageContext context;
-
-        public SqlServerStorageAreaHistory(SqlServerStorageArea area, SqlServerStorageContext context)
-        {
-            this.area = area;
-            this.context = context;
-        }
-
-        public IEnumerable<JObject> Get(Guid guid, DateTime? @from = null, DateTime? to = null)
-        {
-            EnsureTable();
-
-            throw new NotImplementedException();
-        }
-
-        public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
-        {
-            EnsureTable();
-
-            throw new NotImplementedException();
-        }
-
-        public void Create(JObject json, bool deleted)
-        {
-            var fields = context.Configuration.Fields;
-            Guid guid = json[fields[JsonField.Id]].ToObject<Guid>();
-            int version = json[fields[JsonField.Version]].ToObject<int>();
-            string contentType = json[fields[JsonField.ContentType]].ToObject<string>();
-            DateTime created = json[fields[JsonField.Created]].ToObject<DateTime>();
-
-            JToken updatedToken = json[fields[JsonField.Updated]];
-            object updated = updatedToken.Type == JTokenType.Null ? (object) DBNull.Value : json[fields[JsonField.Updated]].ToObject<DateTime>();
-
-            json = ExecuteDecorators(json);
-
-            //Note: Don't double store these values. 
-            //      Here we clear them in case that we wan't to store a copy of an object.
-            //ClearMetaData(json);
-
-            EnsureTable();
-
-            using (SqlConnection connection = context.Connection())
-            {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    command.CommandText = area.Commands["InsertHistory"];
-                    command.Parameters.Add(new SqlParameter(HistoryField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
-                    command.Parameters.Add(new SqlParameter(StorageField.Version.ToString(), SqlDbType.Int)).Value = version;
-                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(HistoryField.Deleted.ToString(), SqlDbType.Bit)).Value = deleted;
-                    command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updated;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-
-        private JObject ExecuteDecorators(JObject json)
-        {
-            IHistoryEnabledStorageAreaConfiguration config = (IHistoryEnabledStorageAreaConfiguration) context.Configuration.Area(area.Name);
-            return config.Decorators.Aggregate(json, (obj, decorator) => decorator.Decorate(obj));
-        }
-
-        private void ClearMetaData(JObject json)
-        {
-            var fields = context.Configuration.Fields;
-            json.Remove(fields[JsonField.Id]);
-            json.Remove(fields[JsonField.Version]);
-            json.Remove(fields[JsonField.ContentType]);
-            json.Remove(fields[JsonField.Created]);
-            json.Remove(fields[JsonField.Updated]);
-        }
-
-        private void EnsureTable()
-        {
-            if (initialized)
-                return;
-
-            if (!TableExists)
-                CreateTable();
-
-            initialized = true;
-        }
-
-        private bool TableExists
-        {
-            get
-            {
-                using (SqlConnection connection = context.Connection())
-                {
-                    connection.Open();
-                    using (SqlCommand command = new SqlCommand { Connection = connection })
-                    {
-                        command.CommandText = area.Commands["HistoryTableExists"];
-                        object result = command.ExecuteScalar();
-                        return 1 == Convert.ToInt32(result);
-                    }
-                }
-            }
-        }
-
-        private void CreateTable()
-        {
-            using (SqlConnection connection = context.Connection())
-            {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    command.CommandText = area.Commands["CreateHistoryTable"];
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-    }
-
-    public class NullStorageAreaHistory : IStorageAreaHistory
-    {
-        private IEnumerable<JObject> ThrowError()
-        {
-            throw new InvalidOperationException("History must be enabled for an area in order to query history data.");
-        }
-
-        public bool Initialized { get { return false; } }
-
-        public bool Initialize()
-        {
-            return ThrowError().Any();
-        }
-
-        public IEnumerable<JObject> Get(Guid guid, DateTime? @from = null, DateTime? to = null)
-        {
-            return ThrowError();
-        }
-
-        public IEnumerable<JObject> GetDeleted(string contentType, DateTime? @from = null, DateTime? to = null)
-        {
-            return ThrowError();
-        }
-
-        public void Create(JObject json, bool deleted)
-        {
-
-        }
-    }
-
     public class SqlServerStorageArea : IStorageArea
     {
         private bool initialized;
         private readonly SqlServerStorageContext context;
-        private readonly IStorageAreaHistory history = new NullStorageAreaHistory();
+        private readonly IStorageAreaHistory history;
 
         public string Name { get; private set; }
-      
+
+        public IStorageAreaHistory History
+        {
+            get
+            {
+                if (history == null)
+                    throw new InvalidOperationException("History must be enabled for an area in order to query history data.");
+
+                return history;
+            }
+        }
+
         internal ICommandFactory Commands { get; private set; }
 
         public SqlServerStorageArea(SqlServerStorageContext context, string name)
@@ -229,32 +83,8 @@ namespace DotJEM.Json.Storage
                 .SingleOrDefault();
         }
 
-        private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
-        {
-            EnsureTable();
-
-            using (SqlConnection connection = context.Connection())
-            {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
-                {
-                    command.Parameters.AddRange(parameters);
-
-                    //TODO: Dynamically read columns.
-                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
-                        yield return json;
-
-                    command.Parameters.Clear();
-                }
-            }
-        }
-
         public JObject Insert(string contentType, JObject json)
         {
-            //Note: Don't double store these values. 
-            //      Here we clear them in case that we wan't to store a copy of an object.
-            ClearMetaData(json);
-
             EnsureTable();
 
             using (SqlConnection connection = context.Connection())
@@ -266,6 +96,7 @@ namespace DotJEM.Json.Storage
                     command.CommandText = Commands["Insert"];
                     command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
+                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
 
                     return RunDataReader(command.ExecuteReader()).Single();
@@ -275,10 +106,6 @@ namespace DotJEM.Json.Storage
 
         public JObject Update(Guid id, string contentType, JObject json)
         {
-            //Note: Don't double store these values. 
-            //      Here we clear them in case that we wan't to store a copy of an object.
-            ClearMetaData(json);
-
             EnsureTable();
 
             using (SqlConnection connection = context.Connection())
@@ -300,7 +127,7 @@ namespace DotJEM.Json.Storage
 
                     reader.Read();
 
-                    history.Create(ReadPrefixedRow("DELETED", reader), false);
+                    History.Create(ReadPrefixedRow("DELETED", reader), false);
                     return ReadPrefixedRow("INSERTED", reader);
                 }
             }
@@ -321,20 +148,30 @@ namespace DotJEM.Json.Storage
                     if (deleted == null)
                         return null;
 
-                    history.Create(deleted, true);
+                    History.Create(deleted, true);
                     return deleted;
                 }
             }
         }
-
-        internal void ClearMetaData(JObject json)
+   
+        private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
         {
-            var fields = context.Configuration.Fields;
-            json.Remove(fields[JsonField.Id]);
-            json.Remove(fields[JsonField.Version]);
-            json.Remove(fields[JsonField.ContentType]);
-            json.Remove(fields[JsonField.Created]);
-            json.Remove(fields[JsonField.Updated]);
+            EnsureTable();
+
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
+                {
+                    command.Parameters.AddRange(parameters);
+
+                    //TODO: Dynamically read columns.
+                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
+                        yield return json;
+
+                    command.Parameters.Clear();
+                }
+            }
         }
 
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
@@ -356,6 +193,7 @@ namespace DotJEM.Json.Storage
             JObject json;
             json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
+            json[context.Configuration.Fields[JsonField.Area]] = Name;
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
             json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);

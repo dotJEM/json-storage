@@ -64,13 +64,13 @@ namespace DotJEM.Json.Storage.Queries
                 .Add("deleted", HistoryField.Deleted);
 
             vars.Add("tableName", table)
-                .Add("historyTableName", "{tableName}History")
+                .Add("historyTableName", "{tableName}.history")
                 .Add("db", database)
                 .Add("tableFullName", "[{db}].[dbo].[{tableName}]")
                 .Add("historyTableFullName", "[{db}].[dbo].[{historyTableName}]");
 
             //TODO: Replace with a command builder pattern.
-            self.Insert = vars.Format("INSERT INTO {tableFullName} ([{version}], [{type}], [{created}], [{data}]) OUTPUT INSERTED.* VALUES (1, @{type}, @{created}, @{data});");
+            self.Insert = vars.Format("INSERT INTO {tableFullName} ([{version}], [{type}], [{created}], [{updated}], [{data}]) OUTPUT INSERTED.* VALUES (1, @{type}, @{created}, @{updated}, @{data});");
             self.Update = vars.Format(
                 "UPDATE {tableFullName} SET [{version}] = [{version}] + 1, [{type}] = @{type}, [{updated}] = @{updated}, [{data}] = @{data}"
                           + " OUTPUT"
@@ -117,8 +117,11 @@ namespace DotJEM.Json.Storage.Queries
             self.InsertHistory = vars.Format("INSERT INTO {historyTableFullName} ([{fid}], [{version}], [{type}], [{deleted}], [{created}], [{updated}], [{data}])"
                                            + " VALUES (@{fid}, @{version}, @{type}, @{deleted}, @{created}, @{updated}, @{data});");
             //TODO: Requires paging!
-            self.SelectHistoryFor = vars.Format("SELECT * FROM {tableFullName} WHERE [{fid}] = @{fid} ORDER BY [{version}] DESC;");
-            self.SelectDeletedHistory = vars.Format("SELECT * FROM {tableFullName} WHERE [{deleted}] = 1 ORDER BY [{created}];");
+            self.SelectHistoryFor = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} ORDER BY [{version}] DESC;");
+            self.SelectDeletedHistoryByContentType = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{type}] = @{type} ORDER BY [{version}];");
+
+            self.SelectHistoryForFromDate = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] >= @{updated} ORDER BY [{version}] DESC;");
+            self.SelectDeletedHistoryByContentTypeFromDate = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
 
             self.CreateHistoryTable = vars.Format(
                 @"CREATE TABLE [dbo].[{historyTableName}] (

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Configuration;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -17,36 +19,26 @@ namespace DotJEM.Json.Storage.Test
             IStorageConfigurator config = context.Configure;
             config.MapField(JsonField.Id, "id");
 
-            config.Area("TestArea2")
+            config.Area("test")
                 .EnableHistory();
 
-            IStorageArea area = context.Area("TestArea2");
-
-
-            //cfg.Configure(From.File('asdasd'));
-            //cfg.Configure(From.Appconfig());
-            //cfg.Configure(For.Area("").EnableHistory());
-
-            //cfg.EnableHistory();
-            //cfg.For.Area("").EnableHistory();
-            //cfg.From.File("");
-            //cfg.From.AppConfig();
-            
-            //cfg.For.Area("").HistoryDecorator(new JObjectDecorator());
-             
-
-            //Assert.That(table.Initialized, Is.False);
-
-
-
+            IStorageArea area = context.Area("test");
             dynamic item = area.Insert("Item", JObject.Parse("{ name: 'Potatoes' }"));
-            dynamic item1 = area.Update(item.id.ToObject<Guid>(), "Item", JObject.Parse("{ name: 'Potatoes', count: 10 }"));
+            dynamic item1 = area.Update((Guid)item.id, "Item", JObject.Parse("{ name: 'Potatoes', count: 10 }"));
             JObject item2 = area.Get("Item").First();
 
-            Assert.That(item, Is.EqualTo(item2));
 
-            JObject item3 = area.Update(item.id.ToObject<Guid>(), "item", item2);
-            //Assert.That(item2, Is.EqualTo(item3));
+            Assert.That(item1, Is.EqualTo(item2));
+            JObject item3 = area.Update((Guid)item.id, "item", item2);
+
+            IEnumerable<JObject> history = area.History.Get((Guid)item.id);
+            Assert.That(history.Count(), Is.EqualTo(2));
+
+            foreach (JObject jObject in history)
+            {
+                Console.WriteLine(jObject);
+            }
+
 
         }
     }
