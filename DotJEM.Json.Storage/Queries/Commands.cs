@@ -72,7 +72,7 @@ namespace DotJEM.Json.Storage.Queries
             //TODO: Replace with a command builder pattern.
             self.Insert = vars.Format("INSERT INTO {tableFullName} ([{version}], [{type}], [{created}], [{updated}], [{data}]) OUTPUT INSERTED.* VALUES (1, @{type}, @{created}, @{updated}, @{data});");
             self.Update = vars.Format(
-                "UPDATE {tableFullName} SET [{version}] = [{version}] + 1, [{type}] = @{type}, [{updated}] = @{updated}, [{data}] = @{data}"
+                "UPDATE {tableFullName} SET [{version}] = [{version}] + 1, [{updated}] = @{updated}, [{data}] = @{data}"
                           + " OUTPUT"
                           + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{version}] as [DELETED_{version}], DELETED.[{type}] as [DELETED_{type}],"
                           + "   DELETED.[{created}] as [DELETED_{created}], DELETED.[{updated}] as [DELETED_{updated}], DELETED.[{data}] as [DELETED_{data}],"
@@ -156,6 +156,10 @@ namespace DotJEM.Json.Storage.Queries
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                             WHERE TABLE_SCHEMA = 'dbo'
                                                 AND TABLE_NAME = '{historyTableName}'");
+
+
+            // SEED STUFF
+
 
         }
     }

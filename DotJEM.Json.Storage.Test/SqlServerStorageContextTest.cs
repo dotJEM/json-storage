@@ -24,12 +24,12 @@ namespace DotJEM.Json.Storage.Test
 
             IStorageArea area = context.Area("test");
             dynamic item = area.Insert("Item", JObject.Parse("{ name: 'Potatoes' }"));
-            dynamic item1 = area.Update((Guid)item.id, "Item", JObject.Parse("{ name: 'Potatoes', count: 10 }"));
+            dynamic item1 = area.Update((Guid)item.id, JObject.Parse("{ name: 'Potatoes', count: 10 }"));
             JObject item2 = area.Get("Item").First();
 
 
             Assert.That(item1, Is.EqualTo(item2));
-            JObject item3 = area.Update((Guid)item.id, "item", item2);
+            JObject item3 = area.Update((Guid)item.id, item2);
 
             IEnumerable<JObject> history = area.History.Get((Guid)item.id);
             Assert.That(history.Count(), Is.EqualTo(2));

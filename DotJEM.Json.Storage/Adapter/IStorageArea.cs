@@ -20,7 +20,7 @@ namespace DotJEM.Json.Storage.Adapter
         JObject Get(Guid guid);
 
         JObject Insert(string contentType, JObject json);
-        JObject Update(Guid guid, string contentType, JObject json);
+        JObject Update(Guid guid, JObject json);
         JObject Delete(Guid guid);
     }
 
@@ -104,7 +104,7 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
-        public JObject Update(Guid id, string contentType, JObject json)
+        public JObject Update(Guid id, JObject json)
         {
             EnsureTable();
 
@@ -116,7 +116,6 @@ namespace DotJEM.Json.Storage.Adapter
 
                     DateTime updateTime = DateTime.Now;
                     command.CommandText = Commands["Update"];
-                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
