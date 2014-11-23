@@ -29,6 +29,7 @@ namespace DotJEM.Json.Storage.Adapter
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly IStorageAreaHistory history;
+        private object padlock = new object();
 
         public string Name { get; private set; }
 
@@ -69,7 +70,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IEnumerable<JObject> Get(string contentType)
         {
-            if (contentType == null) 
+            if (contentType == null)
                 throw new ArgumentNullException("contentType");
 
             return InternalGet("SelectAllByContentType",
@@ -78,7 +79,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         public JObject Get(Guid guid)
         {
-            return InternalGet("SelectSingle", 
+            return InternalGet("SelectSingle",
                 new SqlParameter(StorageField.Id.ToString(), guid))
                 .SingleOrDefault();
         }
@@ -121,7 +122,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
                     SqlDataReader reader = command.ExecuteReader();
-                    if (!reader.HasRows) 
+                    if (!reader.HasRows)
                         throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
 
                     reader.Read();
@@ -152,7 +153,7 @@ namespace DotJEM.Json.Storage.Adapter
                 }
             }
         }
-   
+
         private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
         {
             EnsureTable();
@@ -219,7 +220,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         private void EnsureTable()
         {
-            if(initialized)
+            if (initialized)
                 return;
 
             if (!TableExists)
@@ -242,23 +243,29 @@ namespace DotJEM.Json.Storage.Adapter
                         return 1 == Convert.ToInt32(result);
                     }
                 }
-            }          
+            }
         }
 
         private void CreateTable()
         {
             using (SqlConnection connection = context.Connection())
             {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
+                lock (padlock)
                 {
-                    command.CommandText = Commands["CreateTable"];
-                    command.ExecuteNonQuery();
-                }
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    command.CommandText = Commands["CreateSeedTable"];
-                    command.ExecuteNonQuery();
+                    if (TableExists)
+                        return;
+
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandText = Commands["CreateTable"];
+                        command.ExecuteNonQuery();
+                    }
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandText = Commands["CreateSeedTable"];
+                        command.ExecuteNonQuery();
+                    }
                 }
             }
         }

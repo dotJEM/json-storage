@@ -21,6 +21,7 @@ namespace DotJEM.Json.Storage.Adapter
         private bool initialized;
         private readonly SqlServerStorageArea area;
         private readonly SqlServerStorageContext context;
+        private object padlock = new object();
 
         public SqlServerStorageAreaHistory(SqlServerStorageArea area, SqlServerStorageContext context)
         {
@@ -180,13 +181,19 @@ namespace DotJEM.Json.Storage.Adapter
 
         private void CreateTable()
         {
-            using (SqlConnection connection = context.Connection())
+            lock (padlock)
             {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
+                if (TableExists)
+                    return;
+
+                using (SqlConnection connection = context.Connection())
                 {
-                    command.CommandText = area.Commands["CreateHistoryTable"];
-                    command.ExecuteNonQuery();
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandText = area.Commands["CreateHistoryTable"];
+                        command.ExecuteNonQuery();
+                    }
                 }
             }
         }
