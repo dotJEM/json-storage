@@ -11,21 +11,23 @@ namespace DotJEM.Json.Storage.Test
     [TestFixture]
     public class SqlServerStorageContextTest
     {
-        [Test]
-        public void CreateTable()
+        [TestCase("item")]
+        [TestCase("other")]
+        [TestCase("data")]
+        public void CreateTable(string contentType)
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             
             IStorageConfigurator config = context.Configure;
             config.MapField(JsonField.Id, "id");
 
-            config.Area("test")
+            config.Area("test2")
                 .EnableHistory();
 
-            IStorageArea area = context.Area("test");
-            dynamic item = area.Insert("Item", JObject.Parse("{ name: 'Potatoes' }"));
+            IStorageArea area = context.Area("test2");
+            dynamic item = area.Insert(contentType, JObject.Parse("{ name: 'Potatoes' }"));
             dynamic item1 = area.Update((Guid)item.id, JObject.Parse("{ name: 'Potatoes', count: 10 }"));
-            JObject item2 = area.Get("Item").First();
+            JObject item2 = area.Get(contentType).First();
 
 
             Assert.That(item1, Is.EqualTo(item2));

@@ -28,6 +28,7 @@ namespace DotJEM.Json.Storage.Configuration
         public StorageConfiguration()
         {
             MapField(JsonField.Id, "$id");
+            MapField(JsonField.Reference, "$reference");
             MapField(JsonField.Version, "$version");
             MapField(JsonField.ContentType, "$contentType");
             MapField(JsonField.Created, "$created");

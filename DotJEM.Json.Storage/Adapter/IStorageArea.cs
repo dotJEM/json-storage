@@ -177,21 +177,22 @@ namespace DotJEM.Json.Storage.Adapter
         {
             int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
             int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
+            int refColumn = reader.GetOrdinal(StorageField.Reference.ToString());
             int versionColumn = reader.GetOrdinal(StorageField.Version.ToString());
             int contentTypeColumn = reader.GetOrdinal(StorageField.ContentType.ToString());
             int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
             int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
             while (reader.Read())
             {
-                yield return CreateJson(reader, dataColumn, idColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
+                yield return CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
             }
         }
 
-        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
+        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
         {
-            JObject json;
-            json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
+            JObject json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
+            json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = Name;
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
@@ -202,15 +203,18 @@ namespace DotJEM.Json.Storage.Adapter
             return json;
         }
 
+
+
         private JObject ReadPrefixedRow(string prefix, SqlDataReader reader)
         {
             int dataColumn = reader.GetOrdinal(prefix + "_" + StorageField.Data);
             int idColumn = reader.GetOrdinal(prefix + "_" + StorageField.Id);
+            int refColumn = reader.GetOrdinal(prefix + "_" + StorageField.Reference);
             int versionColumn = reader.GetOrdinal(prefix + "_" + StorageField.Version);
             int contentTypeColumn = reader.GetOrdinal(prefix + "_" + StorageField.ContentType);
             int createdColumn = reader.GetOrdinal(prefix + "_" + StorageField.Created);
             int updatedColumn = reader.GetOrdinal(prefix + "_" + StorageField.Updated);
-            return CreateJson(reader, dataColumn, idColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
+            return CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
         }
 
         private void EnsureTable()
@@ -251,7 +255,54 @@ namespace DotJEM.Json.Storage.Adapter
                     command.CommandText = Commands["CreateTable"];
                     command.ExecuteNonQuery();
                 }
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    command.CommandText = Commands["CreateSeedTable"];
+                    command.ExecuteNonQuery();
+                }
             }
+        }
+    }
+
+    public static class Base36
+    {
+        private const string CharList = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        /// <summary>
+        /// Encode the given number into a Base36 string
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static string Encode(long input)
+        {
+            if (input < 0) throw new ArgumentOutOfRangeException("input", input, "input cannot be negative");
+
+            char[] clistarr = CharList.ToCharArray();
+            var result = new Stack<char>();
+            while (input != 0)
+            {
+                result.Push(clistarr[input % 36]);
+                input /= 36;
+            }
+            return new string(result.ToArray());
+        }
+
+        /// <summary>
+        /// Decode the Base36 Encoded string into a number
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static long Decode(string input)
+        {
+            var reversed = input.ToLower().Reverse();
+            long result = 0;
+            int pos = 0;
+            foreach (char c in reversed)
+            {
+                result += CharList.IndexOf(c) * (long)Math.Pow(36, pos);
+                pos++;
+            }
+            return result;
         }
     }
 }

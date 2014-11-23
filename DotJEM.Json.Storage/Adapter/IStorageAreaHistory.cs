@@ -62,6 +62,7 @@ namespace DotJEM.Json.Storage.Adapter
         {
             var fields = context.Configuration.Fields;
             Guid guid = json[fields[JsonField.Id]].ToObject<Guid>();
+            string reference = json[fields[JsonField.Reference]].ToObject<string>();
             int version = json[fields[JsonField.Version]].ToObject<int>();
             string contentType = json[fields[JsonField.ContentType]].ToObject<string>();
             DateTime created = json[fields[JsonField.Created]].ToObject<DateTime>();
@@ -80,6 +81,7 @@ namespace DotJEM.Json.Storage.Adapter
                 {
                     command.CommandText = area.Commands["InsertHistory"];
                     command.Parameters.Add(new SqlParameter(HistoryField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
+                    command.Parameters.Add(new SqlParameter(StorageField.Reference.ToString(), SqlDbType.BigInt)).Value = Base36.Decode(reference);
                     command.Parameters.Add(new SqlParameter(StorageField.Version.ToString(), SqlDbType.Int)).Value = version;
                     command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(HistoryField.Deleted.ToString(), SqlDbType.Bit)).Value = deleted;
