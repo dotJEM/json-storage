@@ -266,7 +266,7 @@ namespace DotJEM.Json.Storage.Adapter
 
     public static class Base36
     {
-        private const string CharList = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        private static readonly char[] digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
         /// <summary>
         /// Encode the given number into a Base36 string
@@ -277,11 +277,10 @@ namespace DotJEM.Json.Storage.Adapter
         {
             if (input < 0) throw new ArgumentOutOfRangeException("input", input, "input cannot be negative");
 
-            char[] clistarr = CharList.ToCharArray();
             var result = new Stack<char>();
             while (input != 0)
             {
-                result.Push(clistarr[input % 36]);
+                result.Push(digits[input % 36]);
                 input /= 36;
             }
             return new string(result.ToArray());
@@ -294,12 +293,12 @@ namespace DotJEM.Json.Storage.Adapter
         /// <returns></returns>
         public static long Decode(string input)
         {
-            var reversed = input.ToLower().Reverse();
+            var reversed = input.Reverse();
             long result = 0;
             int pos = 0;
             foreach (char c in reversed)
             {
-                result += CharList.IndexOf(c) * (long)Math.Pow(36, pos);
+                result += Array.IndexOf(digits, c) * (long)Math.Pow(36, pos);
                 pos++;
             }
             return result;

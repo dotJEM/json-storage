@@ -66,9 +66,7 @@ namespace DotJEM.Json.Storage.Adapter
             int version = json[fields[JsonField.Version]].ToObject<int>();
             string contentType = json[fields[JsonField.ContentType]].ToObject<string>();
             DateTime created = json[fields[JsonField.Created]].ToObject<DateTime>();
-
-            JToken updatedToken = json[fields[JsonField.Updated]];
-            object updated = updatedToken.Type == JTokenType.Null ? (object)DBNull.Value : json[fields[JsonField.Updated]].ToObject<DateTime>();
+            DateTime updated = json[fields[JsonField.Updated]].ToObject<DateTime>();
 
             json = ExecuteDecorators(json);
 
@@ -118,29 +116,29 @@ namespace DotJEM.Json.Storage.Adapter
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
         {
             int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
-            int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
+            int refColumn = reader.GetOrdinal(StorageField.Reference.ToString());
+            int fidColumn = reader.GetOrdinal(HistoryField.Fid.ToString());
             int versionColumn = reader.GetOrdinal(StorageField.Version.ToString());
             int contentTypeColumn = reader.GetOrdinal(StorageField.ContentType.ToString());
             int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
             int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
             while (reader.Read())
             {
-                yield return CreateJson(reader, dataColumn, idColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
+                yield return CreateJson(reader, dataColumn, fidColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn);
             }
         }
 
-        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
+        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn,  int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
         {
             JObject json;
             json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
+            json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = area.Name;
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
             json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
-            json[context.Configuration.Fields[JsonField.Updated]] = !reader.IsDBNull(updatedColumn)
-                ? (DateTime?)reader.GetDateTime(updatedColumn)
-                : null;
+            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
             return json;
         }
 
