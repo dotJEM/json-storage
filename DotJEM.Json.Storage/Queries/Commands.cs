@@ -68,10 +68,12 @@ namespace DotJEM.Json.Storage.Queries
             vars.Add("tableName", table)
                 .Add("historyTableName", "{tableName}.history")
                 .Add("seedTableName", "{tableName}.seed")
+                .Add("logTableName", "{tableName}.changelog")
                 .Add("db", database)
                 .Add("tableFullName", "[{db}].[dbo].[{tableName}]")
                 .Add("historyTableFullName", "[{db}].[dbo].[{historyTableName}]")
-                .Add("seedTableFullName", "[{db}].[dbo].[{seedTableName}]");
+                .Add("seedTableFullName", "[{db}].[dbo].[{seedTableName}]")
+                .Add("logTableFullName", "[{db}].[dbo].[{logTableName}]");
 
             //TODO: Replace with a command builder pattern.
             self.Insert = vars.Format(
@@ -103,6 +105,22 @@ namespace DotJEM.Json.Storage.Queries
 
             self.SelectSingle = vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
 
+
+//CREATE TABLE [dbo].[test](
+//    [Id] [uniqueidentifier] NOT NULL,
+//    [Reference] [bigint] NOT NULL,
+//    [Version] [int] NOT NULL,
+//    [ContentType] [varchar](256) NOT NULL,
+//    [Created] [datetime] NOT NULL,
+//    [Updated] [datetime] NOT NULL,
+//    [Data] [varbinary](max) NOT NULL,
+//    [RV] [timestamp] NOT NULL,
+// CONSTRAINT [PK_test] PRIMARY KEY CLUSTERED 
+//(
+//    [Id] ASC
+//)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+//) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+
             self.CreateTable = vars.Format(
                 @"CREATE TABLE [dbo].[{tableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
@@ -113,16 +131,12 @@ namespace DotJEM.Json.Storage.Queries
                           [{updated}] [datetime] NOT NULL,
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
-                          CONSTRAINT [PK_{tableName}] PRIMARY KEY NONCLUSTERED (
+                          CONSTRAINT [PK_{tableName}] PRIMARY KEY CLUSTERED (
                             [Id] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
                         ) ON [PRIMARY];
 
-                        ALTER TABLE [dbo].[{tableName}] ADD  CONSTRAINT [DF_{tableName}_{id}]  DEFAULT (NEWSEQUENTIALID()) FOR [{id}];
-
-                        CREATE CLUSTERED INDEX [IX_{tableName}_{type}] ON [dbo].[{tableName}] (
-                          [{type}] ASC
-                        ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];");
+                        ALTER TABLE [dbo].[{tableName}] ADD  CONSTRAINT [DF_{tableName}_{id}]  DEFAULT (NEWSEQUENTIALID()) FOR [{id}];");
 
             self.TableExists = vars.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
@@ -152,7 +166,7 @@ namespace DotJEM.Json.Storage.Queries
                           [{updated}] [datetime] NOT NULL,
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
-                          CONSTRAINT [PK_{historyTableName}] PRIMARY KEY NONCLUSTERED (
+                          CONSTRAINT [PK_{historyTableName}] PRIMARY KEY CLUSTERED (
                             [Id] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
                         ) ON [PRIMARY];
@@ -160,10 +174,6 @@ namespace DotJEM.Json.Storage.Queries
                         ALTER TABLE [dbo].[{historyTableName}] ADD  CONSTRAINT [DF_{historyTableName}_{id}]  DEFAULT (NEWSEQUENTIALID()) FOR [{id}];
 
                         ALTER TABLE [dbo].[{historyTableName}] ADD  CONSTRAINT [DF_{historyTableName}_{deleted}]  DEFAULT ((0)) FOR [{deleted}];
-
-                        CREATE CLUSTERED INDEX [IX_{historyTableName}_{type}] ON [dbo].[{historyTableName}] (
-                          [{type}] ASC
-                        ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY];
 
                         ALTER TABLE [dbo].[{historyTableName}] WITH NOCHECK ADD  CONSTRAINT [FK_{historyTableName}_{tableName}] FOREIGN KEY([{fid}])
                               REFERENCES [dbo].[{historyTableName}] ([{id}]);
@@ -196,6 +206,33 @@ namespace DotJEM.Json.Storage.Queries
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{seedTableName}'");
+
+            // logTableName
+            // logTableFullName
+
+            // CHANGE LOG
+            self.CreateLogTable = vars.Format(
+                @"CREATE TABLE [dbo].[{logTableName}] (
+                          [{id}] [uniqueidentifier] NOT NULL,
+                          [{ref}] [bigint] NOT NULL,
+                          [{version}] [int] NOT NULL,
+                          [{type}] [varchar](256) NOT NULL,
+                          [{created}] [datetime] NOT NULL,
+                          [{updated}] [datetime] NOT NULL,
+                          [{data}] [varbinary](max) NOT NULL,
+                          [RV] [rowversion] NOT NULL,
+                          CONSTRAINT [PK_{logTableName}] PRIMARY KEY CLUSTERED (
+                            [Id] ASC
+                          ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
+                        ) ON [PRIMARY];
+
+                        ALTER TABLE [dbo].[{logTableName}] ADD  CONSTRAINT [DF_{logTableName}_{id}]  DEFAULT (NEWSEQUENTIALID()) FOR [{id}];");
+
+            self.LogTableExists = vars.Format(
+                @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                               WHERE TABLE_SCHEMA = 'dbo'
+                                 AND TABLE_NAME = '{logTableName}'");
+
 
         }
     }
