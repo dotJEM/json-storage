@@ -261,6 +261,11 @@ namespace DotJEM.Json.Storage.Adapter
                     }
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
+                        command.CommandText = Commands["CreateLogTable"];
+                        command.ExecuteNonQuery();
+                    }
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
                         command.CommandText = Commands["CreateSeedTable"];
                         command.ExecuteNonQuery();
                     }

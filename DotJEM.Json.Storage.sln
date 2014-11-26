@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30324.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage", "DotJEM.Json.Storage\DotJEM.Json.Storage.csproj", "{672D1E1D-C559-4914-B233-807CC7CE3B52}"
 EndProject
@@ -21,6 +21,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage.Benchmarks", "DotJEM.Json.Storage.Benchmarks\DotJEM.Json.Storage.Benchmarks.csproj", "{04044D8B-607B-4F06-9D03-7F498357346D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4FB691C4-C279-4AA2-BF63-451FE1BEFBE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04044D8B-607B-4F06-9D03-7F498357346D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04044D8B-607B-4F06-9D03-7F498357346D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04044D8B-607B-4F06-9D03-7F498357346D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04044D8B-607B-4F06-9D03-7F498357346D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
