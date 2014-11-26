@@ -127,7 +127,7 @@ namespace DotJEM.Json.Storage.Adapter
 
                     reader.Read();
 
-                    History.Create(ReadPrefixedRow("DELETED", reader), false);
+                    if(history != null) history.Create(ReadPrefixedRow("DELETED", reader), false);
                     return ReadPrefixedRow("INSERTED", reader);
                 }
             }
@@ -148,7 +148,7 @@ namespace DotJEM.Json.Storage.Adapter
                     if (deleted == null)
                         return null;
 
-                    History.Create(deleted, true);
+                    if (history != null) history.Create(deleted, true);
                     return deleted;
                 }
             }
@@ -198,9 +198,7 @@ namespace DotJEM.Json.Storage.Adapter
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
             json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
-            json[context.Configuration.Fields[JsonField.Updated]] = !reader.IsDBNull(updatedColumn)
-                ? (DateTime?)reader.GetDateTime(updatedColumn)
-                : null;
+            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
             return json;
         }
 
