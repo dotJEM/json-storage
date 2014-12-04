@@ -27,23 +27,19 @@ namespace DotJEM.Json.Storage.Benchmarks
             //ThreadPool.RegisterWaitForSingleObject(exit, (o, b) => generator.Stop(), null, TimeSpan.FromMinutes(5), false);
             Stopwatch timer = Stopwatch.StartNew();
 
-            List<IGrouping<long, long>> results = 
+            IEnumerable<int> counts =
             generator.AsParallel().Select(doc =>
             {
                 area.Insert(doc.ContentType, doc.Data);
-                if (timer.ElapsedMilliseconds/(1000*30) > 0)
+                if (timer.ElapsedMilliseconds / (1000 * 30) > 0)
                 {
                     generator.Stop();
                 }
                 return timer.ElapsedMilliseconds;
+            }).GroupBy(ms => ms / 1000).OrderBy(g => g.Key).Select(group => group.Count()).ToList();
 
-            }).GroupBy(ms => ms / 1000).OrderBy(g => g.Key).ToList();
-
-            foreach (IGrouping<long, long> longs in results)
-            {
-                Console.WriteLine(longs.Key + " == " + longs.Count());
-            }
-
+            //NOTE: 5000 Inserts pr. second, aint that ok?
+            Assert.That(counts.Average(), Is.GreaterThan(5000));
         }
 
 
@@ -57,7 +53,6 @@ namespace DotJEM.Json.Storage.Benchmarks
         private readonly IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
         private readonly IStorageArea area;
 
-
         public BenchmarkingEngine()
         {
             area = context.Area();
@@ -65,18 +60,7 @@ namespace DotJEM.Json.Storage.Benchmarks
 
         public void Start()
         {
-            Stopwatch timer = Stopwatch.StartNew();
-            generator.AsParallel().ForAll(doc =>
-            {
-                area.Insert(doc.ContentType, doc.Data);
-                long sec = timer.ElapsedMilliseconds / 1000;
-            });
-
-            //generator.AsParallel().Select(doc =>
-            //{
-            //    area.Insert(doc.ContentType, doc.Data);
-            //    return timer.ElapsedMilliseconds/1000;
-            //});
+            generator.AsParallel().ForAll(doc => area.Insert(doc.ContentType, doc.Data));
         }
 
         public void Stop()
@@ -101,27 +85,26 @@ namespace DotJEM.Json.Storage.Benchmarks
     public class TestObjectGenerator : IEnumerable<Document>
     {
         private bool stop = false;
-        private readonly Random rand = new Random(42);
         private readonly HashSet<string> contentTypes = new HashSet<string>(new[] { "order", "person", "product", "account", "storage", "address", "payment", "delivery", "token", "shipment" });
 
         public IEnumerator<Document> GetEnumerator()
         {
             while (!stop)
             {
-                yield return new Document(
-                    RandomContentType(),
-                    RandomDocument()
-                    );
+                string contentType = RandomContentType();
+                yield return new Document(contentType, RandomDocument(contentType));
             }
         }
 
         private string RandomContentType()
         {
-            return contentTypes.ElementAt(rand.Next(0, contentTypes.Count()));
+            return contentTypes.RandomItem();
         }
 
-        private JObject RandomDocument()
+        private JObject RandomDocument(string contentType)
         {
+
+            //TODO: Bigger document and use contentype for propper stuff.
             return JObject.FromObject(new { A = "Item 42" });
         }
 
@@ -133,6 +116,46 @@ namespace DotJEM.Json.Storage.Benchmarks
         public void Stop()
         {
             stop = true;
+        }
+    }
+
+    public static class RandomHelper
+    {
+        private static readonly Random rand = new Random(42);
+
+        public static T RandomItem<T>(this IEnumerable<T> items)
+        {
+            ICollection<T> list = items as ICollection<T> ?? items.ToArray();
+            return list.ElementAt(rand.Next(0, list.Count()));
+        }
+    }
+
+    public class RandomTextGenerator
+    {
+        private readonly string[] texts = "Childharold,Decameron,Faust,Inderfremde,Lebateauivre,Lemasque,Loremipsum,Nagyonfaj,Omagyar,Robinsonokruso,Theraven,Tierrayluna".Split(',');
+
+        public string Paragraph(string @from, int count)
+        {
+            string words = LoremIpsums.ResourceManager.GetString(@from, LoremIpsums.Culture);
+        }
+
+        public string Word(string @from, int minlength)
+        {
+            return Open(from).Where(w => w.Length >= minlength).RandomItem();
+        }
+
+        private IEnumerable<string> Open(string @from)
+        {
+            if(!texts.Contains(@from))
+                throw new ArgumentException(string.Format("The text '{0}' was unknown.", @from),"from");
+
+            Debug.Assert(LoremIpsums.ResourceManager != null, "LoremIpsums.ResourceManager != null");
+            Debug.Assert(LoremIpsums.Culture != null, "LoremIpsums.Culture != null");
+
+            string text = LoremIpsums.ResourceManager.GetString(@from, LoremIpsums.Culture);
+            Debug.Assert(text != null, "text != null");
+
+            return text.Split(new []{' '},StringSplitOptions.RemoveEmptyEntries);
         }
     }
 
