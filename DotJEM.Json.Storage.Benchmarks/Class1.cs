@@ -15,10 +15,11 @@ namespace DotJEM.Json.Storage.Benchmarks
     [TestFixture]
     public class InsertOnSimpleStorageBenchmarks
     {
+        private readonly IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+
         [Test]
-        public void Benchmark()
+        public void Insert_Benchmark()
         {
-            IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             IStorageArea area = context.Area("simple");
 
             TestObjectGenerator generator = new TestObjectGenerator();
@@ -31,42 +32,30 @@ namespace DotJEM.Json.Storage.Benchmarks
             generator.AsParallel().Select(doc =>
             {
                 area.Insert(doc.ContentType, doc.Data);
-                if (timer.ElapsedMilliseconds / (1000 * 30) > 0)
+                if (timer.ElapsedMilliseconds / (1000 * 60 * 5) > 0)
                 {
                     generator.Stop();
                 }
                 return timer.ElapsedMilliseconds;
             }).GroupBy(ms => ms / 1000).OrderBy(g => g.Key).Select(group => group.Count()).ToList();
 
-            //NOTE: 5000 Inserts pr. second, aint that ok?
-            Assert.That(counts.Average(), Is.GreaterThan(5000));
+            //NOTE: 1000 Inserts pr. second, aint that ok?
+            Assert.That(counts.Average(), Is.GreaterThan(1000));
         }
 
-
-    }
-
-
-
-    public class BenchmarkingEngine
-    {
-        private readonly TestObjectGenerator generator = new TestObjectGenerator();
-        private readonly IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
-        private readonly IStorageArea area;
-
-        public BenchmarkingEngine()
+        [Test]
+        public void Get_Benchmarks()
         {
-            area = context.Area();
+            IStorageArea area = context.Area("simple");
+
+            var items = area.Get().Take(10);
+
+            foreach (JObject jObject in items)
+            {
+                Console.WriteLine(jObject.ToString());
+            }
         }
 
-        public void Start()
-        {
-            generator.AsParallel().ForAll(doc => area.Insert(doc.ContentType, doc.Data));
-        }
-
-        public void Stop()
-        {
-            generator.Stop();
-        }
     }
 
     public class Document
@@ -86,6 +75,7 @@ namespace DotJEM.Json.Storage.Benchmarks
     {
         private bool stop = false;
         private readonly HashSet<string> contentTypes = new HashSet<string>(new[] { "order", "person", "product", "account", "storage", "address", "payment", "delivery", "token", "shipment" });
+        private RandomTextGenerator textGenerator = new RandomTextGenerator();
 
         public IEnumerator<Document> GetEnumerator()
         {
@@ -103,9 +93,14 @@ namespace DotJEM.Json.Storage.Benchmarks
 
         private JObject RandomDocument(string contentType)
         {
-
+            string text = textGenerator.RandomText();
             //TODO: Bigger document and use contentype for propper stuff.
-            return JObject.FromObject(new { A = "Item 42" });
+            return JObject.FromObject(new
+            {
+                Source = text,
+                Content = textGenerator.Paragraph(text),
+                Keys = textGenerator.Words(text, 4, 5)
+            });
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -128,20 +123,44 @@ namespace DotJEM.Json.Storage.Benchmarks
             ICollection<T> list = items as ICollection<T> ?? items.ToArray();
             return list.ElementAt(rand.Next(0, list.Count()));
         }
+
+        public static T[] RandomItems<T>(this IEnumerable<T> items, int take)
+        {
+            ICollection<T> list = items as ICollection<T> ?? items.ToArray();
+            return list.Skip(rand.Next(list.Count-take)).Take(take).ToArray();
+        }
+
+        public static IEnumerable<int> RandomSequence(int lenght, int maxValue, bool allowRepeats)
+        {
+            var sequence = RandomSequence(maxValue);
+            if (!allowRepeats)
+                sequence = sequence.Distinct();
+            return sequence.Take(lenght);
+        }
+
+        private static IEnumerable<int> RandomSequence(int maxValue)
+        {
+            while (true) yield return rand.Next(maxValue);
+        }
     }
 
     public class RandomTextGenerator
     {
         private readonly string[] texts = "Childharold,Decameron,Faust,Inderfremde,Lebateauivre,Lemasque,Loremipsum,Nagyonfaj,Omagyar,Robinsonokruso,Theraven,Tierrayluna".Split(',');
 
-        public string Paragraph(string @from, int count)
+        public string RandomText()
         {
-            string words = LoremIpsums.ResourceManager.GetString(@from, LoremIpsums.Culture);
+            return texts.RandomItem();
         }
 
-        public string Word(string @from, int minlength)
+        public string Paragraph(string @from, int count = 20)
         {
-            return Open(from).Where(w => w.Length >= minlength).RandomItem();
+            return Open(from).RandomItems(count).Aggregate((s, s1) => s + " " + s1);
+        }
+
+        public string Word(string @from, int minLength = 2)
+        {
+            return Open(from).Where(w => w.Length >= minLength).RandomItem();
         }
 
         private IEnumerable<string> Open(string @from)
@@ -150,12 +169,19 @@ namespace DotJEM.Json.Storage.Benchmarks
                 throw new ArgumentException(string.Format("The text '{0}' was unknown.", @from),"from");
 
             Debug.Assert(LoremIpsums.ResourceManager != null, "LoremIpsums.ResourceManager != null");
-            Debug.Assert(LoremIpsums.Culture != null, "LoremIpsums.Culture != null");
 
             string text = LoremIpsums.ResourceManager.GetString(@from, LoremIpsums.Culture);
             Debug.Assert(text != null, "text != null");
 
             return text.Split(new []{' '},StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        public string[] Words(string @from, int minLength = 2, int count = 20)
+        {
+            HashSet<string> unique = new HashSet<string>(Open(from).Where(w => w.Length >= minLength));
+            return Enumerable.Repeat("", count)
+                .Select(s => unique.RandomItem())
+                .ToArray();
         }
     }
 
