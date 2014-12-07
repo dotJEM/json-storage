@@ -10,6 +10,7 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter
 {
+
     public interface IStorageArea
     {
         string Name { get; }
@@ -29,7 +30,7 @@ namespace DotJEM.Json.Storage.Adapter
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly IStorageAreaHistory history;
-        private object padlock = new object();
+        private readonly object padlock = new object();
 
         public string Name { get; private set; }
 

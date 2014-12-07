@@ -105,22 +105,6 @@ namespace DotJEM.Json.Storage.Queries
 
             self.SelectSingle = vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
 
-
-//CREATE TABLE [dbo].[test](
-//    [Id] [uniqueidentifier] NOT NULL,
-//    [Reference] [bigint] NOT NULL,
-//    [Version] [int] NOT NULL,
-//    [ContentType] [varchar](256) NOT NULL,
-//    [Created] [datetime] NOT NULL,
-//    [Updated] [datetime] NOT NULL,
-//    [Data] [varbinary](max) NOT NULL,
-//    [RV] [timestamp] NOT NULL,
-// CONSTRAINT [PK_test] PRIMARY KEY CLUSTERED 
-//(
-//    [Id] ASC
-//)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-//) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-
             self.CreateTable = vars.Format(
                 @"CREATE TABLE [dbo].[{tableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
@@ -213,27 +197,26 @@ namespace DotJEM.Json.Storage.Queries
             // CHANGE LOG
             self.CreateLogTable = vars.Format(
                 @"CREATE TABLE [dbo].[{logTableName}] (
-                          [{id}] [uniqueidentifier] NOT NULL,
-                          [{ref}] [bigint] NOT NULL,
-                          [{version}] [int] NOT NULL,
-                          [{type}] [varchar](256) NOT NULL,
-                          [{created}] [datetime] NOT NULL,
-                          [{updated}] [datetime] NOT NULL,
+                          [{id}] [bigint] IDENTITY(1,1) NOT NULL,
+                          [{fid}] [uniqueidentifier] NULL,
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
                           CONSTRAINT [PK_{logTableName}] PRIMARY KEY CLUSTERED (
                             [Id] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
-                        ) ON [PRIMARY];
+                        ) ON [PRIMARY];");
 
-                        ALTER TABLE [dbo].[{logTableName}] ADD  CONSTRAINT [DF_{logTableName}_{id}]  DEFAULT (NEWSEQUENTIALID()) FOR [{id}];");
 
             self.LogTableExists = vars.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{logTableName}'");
 
-
+            self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
+            self.InsertChange = vars.Format(
+                "INSERT INTO {logTableFullName} ( [{fid}], [{data}] ) "
+                + "OUTPUT INSERTED.* "
+                + "VALUES( @{fid}, @{data} );");
         }
     }
 }
