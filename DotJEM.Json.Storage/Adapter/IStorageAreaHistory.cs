@@ -92,8 +92,6 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
-
-
         private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
         {
             EnsureTable();

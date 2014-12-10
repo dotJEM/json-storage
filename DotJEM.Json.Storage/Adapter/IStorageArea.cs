@@ -30,6 +30,7 @@ namespace DotJEM.Json.Storage.Adapter
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly IStorageAreaHistory history;
+        private readonly IStorageAreaLog log;
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
@@ -57,6 +58,8 @@ namespace DotJEM.Json.Storage.Adapter
             {
                 Commands = new SqlServerCommandFactory(conn.Database, name);
             }
+
+            log = new SqlServerStorageAreaLog(this, context);
 
             if (context.Configuration[name].HistoryEnabled)
             {
@@ -101,7 +104,9 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
 
-                    return RunDataReader(command.ExecuteReader()).Single();
+                    var insert = RunDataReader(command.ExecuteReader()).Single();
+                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, LogAction.Create);
+                    return insert;
                 }
             }
         }
@@ -128,8 +133,13 @@ namespace DotJEM.Json.Storage.Adapter
 
                     reader.Read();
 
-                    if(history != null) history.Create(ReadPrefixedRow("DELETED", reader), false);
-                    return ReadPrefixedRow("INSERTED", reader);
+                    var deleted = ReadPrefixedRow("DELETED", reader);
+                    if(history != null)
+                        history.Create(deleted, false);
+
+                    var update = ReadPrefixedRow("INSERTED", reader);
+                    log.Insert(id, deleted, update, LogAction.Update);
+                    return update;
                 }
             }
         }
@@ -150,6 +160,8 @@ namespace DotJEM.Json.Storage.Adapter
                         return null;
 
                     if (history != null) history.Create(deleted, true);
+
+                    log.Insert(guid, deleted, null, LogAction.Delete);
                     return deleted;
                 }
             }
@@ -258,11 +270,6 @@ namespace DotJEM.Json.Storage.Adapter
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
                         command.CommandText = Commands["CreateTable"];
-                        command.ExecuteNonQuery();
-                    }
-                    using (SqlCommand command = new SqlCommand { Connection = connection })
-                    {
-                        command.CommandText = Commands["CreateLogTable"];
                         command.ExecuteNonQuery();
                     }
                     using (SqlCommand command = new SqlCommand { Connection = connection })

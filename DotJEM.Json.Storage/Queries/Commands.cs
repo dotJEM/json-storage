@@ -7,6 +7,7 @@ namespace DotJEM.Json.Storage.Queries
     public enum StorageField
     {
         Id,
+        Fid,
         Reference,
         Version,
         ContentType,
@@ -19,6 +20,11 @@ namespace DotJEM.Json.Storage.Queries
     {
         Fid,
         Deleted
+    }
+
+    public enum LogField
+    {
+        Action
     }
 
     public interface ICommandFactory
@@ -64,6 +70,8 @@ namespace DotJEM.Json.Storage.Queries
 
             vars.Add("fid", HistoryField.Fid)
                 .Add("deleted", HistoryField.Deleted);
+
+            vars.Add("action", LogField.Action);
 
             vars.Add("tableName", table)
                 .Add("historyTableName", "{tableName}.history")
@@ -199,6 +207,7 @@ namespace DotJEM.Json.Storage.Queries
                 @"CREATE TABLE [dbo].[{logTableName}] (
                           [{id}] [bigint] IDENTITY(1,1) NOT NULL,
                           [{fid}] [uniqueidentifier] NULL,
+                          [{action}] [varchar](8) NOT NULL,
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
                           CONSTRAINT [PK_{logTableName}] PRIMARY KEY CLUSTERED (
@@ -214,9 +223,9 @@ namespace DotJEM.Json.Storage.Queries
 
             self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
             self.InsertChange = vars.Format(
-                "INSERT INTO {logTableFullName} ( [{fid}], [{data}] ) "
+                "INSERT INTO {logTableFullName} ( [{fid}], [{action}], [{data}] ) "
                 + "OUTPUT INSERTED.* "
-                + "VALUES( @{fid}, @{data} );");
+                + "VALUES( @{fid}, @{action}, @{data} );");
         }
     }
 }
