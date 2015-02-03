@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Threading;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
@@ -14,6 +15,7 @@ namespace DotJEM.Json.Storage.Adapter
     public interface IStorageArea
     {
         string Name { get; }
+        IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
 
         IEnumerable<JObject> Get();
@@ -34,6 +36,11 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
+
+        public IStorageAreaLog Log
+        {
+            get { return log; }
+        }
 
         public IStorageAreaHistory History
         {
@@ -120,7 +127,6 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-
                     DateTime updateTime = DateTime.Now;
                     command.CommandText = Commands["Update"];
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;

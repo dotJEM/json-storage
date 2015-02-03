@@ -108,14 +108,13 @@ namespace DotJEM.Json.Storage.Adapter
         private JObject Diff(JObject original, JObject changed)
         {
             //TODO: Implemnt simple diff (record changed properties)
+            //      - Could also use this for change details...
             return new JObject();
         }
 
         public IStorageChanges Get(long token)
         {
             EnsureTable();
-
-
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();

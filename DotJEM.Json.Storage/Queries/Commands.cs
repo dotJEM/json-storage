@@ -222,6 +222,46 @@ namespace DotJEM.Json.Storage.Queries
                                  AND TABLE_NAME = '{logTableName}'");
 
             self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
+
+
+                //            SELECT [content].*, 
+                //    (SELECT TOP 1 [Action] FROM [nsw].[dbo].[content.changelog] x WHERE x.Id = cl.Token) as Act, 
+                //    cl.Token 
+                //  FROM [nsw].[dbo].[content]
+                //  INNER JOIN (
+                //    SELECT 
+                //        MAX(Id) as Token, Fid 
+                //    FROM [nsw].[dbo].[content.changelog] WHERE Id > @Lower AND Id < @Upper
+                //    GROUP BY Fid) cl ON cl.Fid = [content].Id;
+
+                //SELECT [content].*, 
+                //    cl.Act, 
+                //    cl.Token 
+                //  FROM [nsw].[dbo].[content]
+                //  INNER JOIN (
+                //    SELECT 
+                //        MAX(Id) as Token, 
+                //        (SELECT TOP 1 [Action] FROM [nsw].[dbo].[content.changelog] x WHERE x.Id = Id) as Act,
+                //        Fid 
+                //    FROM [nsw].[dbo].[content.changelog] WHERE Id > @Lower AND Id < @Upper
+                //    GROUP BY Fid) cl ON cl.Fid = [content].Id;
+
+                //--SELECT [content].*, ChangeLog.Action, ChangeLog.Token
+                //--FROM
+                //--  ( SELECT MAX(Id) as Token, Fid 
+                //--	FROM [nsw].[dbo].[content.changelog] 
+                //--	WHERE Id > @Lower AND Id < @Upper
+                //--	GROUP BY Fid
+                //--  ) CLG
+                //--CROSS APPLY
+                //--  (	SELECT TOP 1 Fid, Id as Token, [Action] 
+                //--	FROM [nsw].[dbo].[content.changelog]
+                //--	WHERE CLG.Token = Id
+                //--  ) ChangeLog
+                //--  INNER JOIN [nsw].[dbo].[content] ON ChangeLog.Fid = [content].Id;
+
+
+
             self.InsertChange = vars.Format(
                 "INSERT INTO {logTableFullName} ( [{fid}], [{action}], [{data}] ) "
                 + "OUTPUT INSERTED.* "
