@@ -99,7 +99,7 @@ namespace DotJEM.Json.Storage.Queries
             self.Update = vars.Format(
                 "UPDATE {tableFullName} SET [{version}] = [{version}] + 1, [{updated}] = @{updated}, [{data}] = @{data}"
                           + " OUTPUT"
-                          + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{ref}] as [DELETED_{ref}], DELETED.[{version}] as [DELETED_{version}], " 
+                          + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{ref}] as [DELETED_{ref}], DELETED.[{version}] as [DELETED_{version}], "
                           + "   DELETED.[{type}] as [DELETED_{type}], DELETED.[{created}] as [DELETED_{created}], "
                           + "   DELETED.[{updated}] as [DELETED_{updated}], DELETED.[{data}] as [DELETED_{data}],"
                           + "   INSERTED.[{id}] as [INSERTED_{id}], INSERTED.[{ref}] as [INSERTED_{ref}], INSERTED.[{version}] as [INSERTED_{version}], "
@@ -227,40 +227,51 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectChangedObjectsDestinct = vars.Format(@"
                 SELECT {tableFullName}.*, 
                        (SELECT TOP 1 [Action] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Action], 
-                       cl.Token 
+                       cl.Token,
+                       cl.[{fid}]
                   FROM {tableFullName}
-                  INNER JOIN (
+                  RIGHT JOIN (
                     SELECT 
                         MAX([{id}]) as Token, [{fid}] 
                     FROM {logTableFullName} WHERE [{id}] > @token
                     GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}];
              ");
 
-                //SELECT [content].*, 
-                //    cl.Act, 
-                //    cl.Token 
-                //  FROM [nsw].[dbo].[content]
-                //  INNER JOIN (
-                //    SELECT 
-                //        MAX(Id) as Token, 
-                //        (SELECT TOP 1 [Action] FROM [nsw].[dbo].[content.changelog] x WHERE x.Id = Id) as Act,
-                //        Fid 
-                //    FROM [nsw].[dbo].[content.changelog] WHERE Id > @Lower AND Id < @Upper
-                //    GROUP BY Fid) cl ON cl.Fid = [content].Id;
+            //SELECT Log.Token, 
+            //  (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = Log.Token) as [Action],
+            //  Content.*
+            //  FROM ( SELECT
+            //            MAX(Id) as Token,
+            //            Fid 
+            //            FROM [json].[dbo].[changelogtest.changelog] 
 
-                //--SELECT [content].*, ChangeLog.Action, ChangeLog.Token
-                //--FROM
-                //--  ( SELECT MAX(Id) as Token, Fid 
-                //--	FROM [nsw].[dbo].[content.changelog] 
-                //--	WHERE Id > @Lower AND Id < @Upper
-                //--	GROUP BY Fid
-                //--  ) CLG
-                //--CROSS APPLY
-                //--  (	SELECT TOP 1 Fid, Id as Token, [Action] 
-                //--	FROM [nsw].[dbo].[content.changelog]
-                //--	WHERE CLG.Token = Id
-                //--  ) ChangeLog
-                //--  INNER JOIN [nsw].[dbo].[content] ON ChangeLog.Fid = [content].Id;
+            //            GROUP BY Fid) Log
+            //  LEFT JOIN [json].[dbo].[changelogtest] Content ON Content.Id = Log.Fid;
+
+
+            //SELECT [changelogtest].*, 
+            //    (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = cl.Token) as [Action], 
+            //    cl.Token 
+            //  FROM [json].[dbo].[changelogtest]
+            //  RIGHT JOIN (
+            //    SELECT 
+            //        MAX(Id) as Token, Fid 
+            //    FROM [json].[dbo].[changelogtest.changelog] 
+            //    GROUP BY Fid) cl ON cl.Fid = [json].[dbo].[changelogtest].Id;
+
+            //--SELECT [content].*, ChangeLog.Action, ChangeLog.Token
+            //--FROM
+            //--  ( SELECT MAX(Id) as Token, Fid 
+            //--	FROM [nsw].[dbo].[content.changelog] 
+            //--	WHERE Id > @Lower AND Id < @Upper
+            //--	GROUP BY Fid
+            //--  ) CLG
+            //--CROSS APPLY
+            //--  (	SELECT TOP 1 Fid, Id as Token, [Action] 
+            //--	FROM [nsw].[dbo].[content.changelog]
+            //--	WHERE CLG.Token = Id
+            //--  ) ChangeLog
+            //--  INNER JOIN [nsw].[dbo].[content] ON ChangeLog.Fid = [content].Id;
 
 
 

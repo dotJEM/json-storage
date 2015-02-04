@@ -118,6 +118,7 @@ namespace DotJEM.Json.Storage.Adapter
             int tokenColumn = reader.GetOrdinal("Token");
             int actionColumn = reader.GetOrdinal("Action");
             int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
+            int fidColumn = reader.GetOrdinal(StorageField.Fid.ToString());
             int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
 
             int refColumn = reader.GetOrdinal(StorageField.Reference.ToString());
@@ -134,8 +135,18 @@ namespace DotJEM.Json.Storage.Adapter
                 ChangeType changeType;
                 Enum.TryParse(reader.GetString(actionColumn), out changeType);
 
-                yield return new StorageChange(token, changeType, CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn));
+                yield return new StorageChange(token, changeType,
+                    changeType != ChangeType.Delete 
+                    ? CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn)
+                    : CreateShell(reader, fidColumn));
             }
+        }
+
+        private JObject CreateShell(SqlDataReader reader, int fidColumn)
+        {
+            JObject json = new JObject();
+            json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(fidColumn);
+            return json;
         }
 
         private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)

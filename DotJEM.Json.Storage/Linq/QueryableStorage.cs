@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -9,6 +10,50 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Linq
 {
+    public class JObjectMetaEntity : DynamicMetaObject
+    {
+        public JObjectMetaEntity(Expression expression, BindingRestrictions restrictions) : base(expression, restrictions)
+        {
+        }
+
+        public override DynamicMetaObject BindGetMember(GetMemberBinder binder)
+        {
+            return base.BindGetMember(binder);
+        }
+
+        public override DynamicMetaObject BindSetMember(SetMemberBinder binder, DynamicMetaObject value)
+        {
+            return base.BindSetMember(binder, value);
+        }
+    }
+
+    public class JObjectEntity : DynamicObject
+    {
+        //Note Reserved fields
+        public Guid Id { get; private set; }
+        public DateTime Created { get; private set; }
+        public DateTime Updated { get; private set; }
+        public DateTime ContentType { get; private set; }
+
+        public JObject Entity { get; set; }
+
+        public JObjectEntity()
+        {
+        }
+
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            // Huh?? DynamicProxyMetaObject<T>
+            result = Entity[binder.Name];
+            return true;
+        }
+
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            return base.TrySetMember(binder, value);
+        }
+    }
+
     public class StorageAreaContext : IOrderedQueryable<JObject>
     {
         public StorageAreaContext(string area)

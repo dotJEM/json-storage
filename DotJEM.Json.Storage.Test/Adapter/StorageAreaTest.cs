@@ -14,7 +14,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
     public class StorageAreaLogTest
     {
         [Test]
-        public void Bob_Change_Log()
+        public void Get_OneCreate_ReturnsOneChange()
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             IStorageArea area = context.Area("changelogtest");
@@ -28,53 +28,58 @@ namespace DotJEM.Json.Storage.Test.Adapter
             changes = area.Log.Get(changes.Token);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
+            Assert.That(changes.Creates.Count(), Is.EqualTo(1));
             Assert.That(changes.First().Entity, Is.EqualTo(inserted));
 
             Console.WriteLine(changes.First().Entity);
         }
-    }
 
-    [TestFixture]
-    public class SqlServerStorageContextTest
-    {
-        [TestCase("item")]
-        [TestCase("other")]
-        [TestCase("data")]
-        public void CreateTable(string contentType)
+        [Test]
+        public void Get_OneUpdate_ReturnsOneChange()
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            IStorageArea area = context.Area("changelogtest");
 
-            IStorageConfigurator config = context.Configure;
-            config.MapField(JsonField.Id, "id");
+            JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
+            create["unique_field"] = Guid.NewGuid();
 
-            config.Area("test")
-                .EnableHistory();
+            JObject inserted = area.Insert("content", create);
+            inserted["unique_field"] = Guid.NewGuid();
+            
+            IStorageChanges changes = area.Log.Get(-1);
 
-            IStorageArea area = context.Area("test");
+            JObject updated = area.Update((Guid)inserted["$id"], inserted);
+            changes = area.Log.Get(changes.Token);
 
-            Enumerable.Range(0, 100).AsParallel().Select(number =>
-            {
-                GetValue(contentType, area);
-                return number;
-            }).ToArray();
+            Assert.That(changes.Count(), Is.EqualTo(1));
+            Assert.That(changes.Updates.Count(), Is.EqualTo(1));
+            Assert.That(changes.First().Entity, Is.EqualTo(updated));
+
+            Console.WriteLine(changes.First().Entity);
         }
 
-        private static void GetValue(string contentType, IStorageArea area)
+        [Test]
+        public void Get_OneDelete_ReturnsOneChange()
         {
-            dynamic item = area.Insert(contentType, JObject.Parse("{ name: 'Potatoes' }"));
-            dynamic item1 = area.Update((Guid)item.id, JObject.Parse("{ name: 'Potatoes', count: 10 }"));
-            JObject item2 = area.Get(contentType).First();
+            IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            IStorageArea area = context.Area("changelogtest");
 
-            Assert.That(item1, Is.EqualTo(item2));
-            JObject item3 = area.Update((Guid)item.id, item2);
+            JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
+            create["unique_field"] = Guid.NewGuid();
 
-            //IEnumerable<JObject> history = area.History.Get((Guid) item.id);
-            //Assert.That(history.Count(), Is.EqualTo(2));
+            JObject inserted = area.Insert("content", create);
+            inserted["unique_field"] = Guid.NewGuid();
 
-            //foreach (JObject jObject in history)
-            //{
-            //    Console.WriteLine(jObject);
-            //}
+            IStorageChanges changes = area.Log.Get(-1);
+
+            area.Delete((Guid)inserted["$id"]);
+            changes = area.Log.Get(changes.Token);
+
+            Assert.That(changes.Count(), Is.EqualTo(1));
+            Assert.That(changes.Deletes.Count(), Is.EqualTo(1));
+            Assert.That(changes.First().Entity, Is.EqualTo(JObject.Parse("{ $id: '" + inserted["$id"] + "' }")));
+
+            Console.WriteLine(changes.First().Entity);
         }
     }
 }
