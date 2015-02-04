@@ -24,7 +24,8 @@ namespace DotJEM.Json.Storage.Queries
 
     public enum LogField
     {
-        Action
+        Action,
+        Changes
     }
 
     public interface ICommandFactory
@@ -98,7 +99,7 @@ namespace DotJEM.Json.Storage.Queries
             self.Update = vars.Format(
                 "UPDATE {tableFullName} SET [{version}] = [{version}] + 1, [{updated}] = @{updated}, [{data}] = @{data}"
                           + " OUTPUT"
-                          + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{ref}] as [DELETED_{ref}], DELETED.[{version}] as [DELETED_{version}], " 
+                          + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{ref}] as [DELETED_{ref}], DELETED.[{version}] as [DELETED_{version}], "
                           + "   DELETED.[{type}] as [DELETED_{type}], DELETED.[{created}] as [DELETED_{created}], "
                           + "   DELETED.[{updated}] as [DELETED_{updated}], DELETED.[{data}] as [DELETED_{data}],"
                           + "   INSERTED.[{id}] as [INSERTED_{id}], INSERTED.[{ref}] as [INSERTED_{ref}], INSERTED.[{version}] as [INSERTED_{version}], "
@@ -221,7 +222,59 @@ namespace DotJEM.Json.Storage.Queries
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{logTableName}'");
 
-            self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
+            self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
+
+            self.SelectChangedObjectsDestinct = vars.Format(@"
+                SELECT {tableFullName}.*, 
+                       (SELECT TOP 1 [Action] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Action], 
+                       cl.Token,
+                       cl.[{fid}]
+                  FROM {tableFullName}
+                  RIGHT JOIN (
+                    SELECT 
+                        MAX([{id}]) as Token, [{fid}] 
+                    FROM {logTableFullName} WHERE [{id}] > @token
+                    GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}];
+             ");
+
+            //SELECT Log.Token, 
+            //  (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = Log.Token) as [Action],
+            //  Content.*
+            //  FROM ( SELECT
+            //            MAX(Id) as Token,
+            //            Fid 
+            //            FROM [json].[dbo].[changelogtest.changelog] 
+
+            //            GROUP BY Fid) Log
+            //  LEFT JOIN [json].[dbo].[changelogtest] Content ON Content.Id = Log.Fid;
+
+
+            //SELECT [changelogtest].*, 
+            //    (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = cl.Token) as [Action], 
+            //    cl.Token 
+            //  FROM [json].[dbo].[changelogtest]
+            //  RIGHT JOIN (
+            //    SELECT 
+            //        MAX(Id) as Token, Fid 
+            //    FROM [json].[dbo].[changelogtest.changelog] 
+            //    GROUP BY Fid) cl ON cl.Fid = [json].[dbo].[changelogtest].Id;
+
+            //--SELECT [content].*, ChangeLog.Action, ChangeLog.Token
+            //--FROM
+            //--  ( SELECT MAX(Id) as Token, Fid 
+            //--	FROM [nsw].[dbo].[content.changelog] 
+            //--	WHERE Id > @Lower AND Id < @Upper
+            //--	GROUP BY Fid
+            //--  ) CLG
+            //--CROSS APPLY
+            //--  (	SELECT TOP 1 Fid, Id as Token, [Action] 
+            //--	FROM [nsw].[dbo].[content.changelog]
+            //--	WHERE CLG.Token = Id
+            //--  ) ChangeLog
+            //--  INNER JOIN [nsw].[dbo].[content] ON ChangeLog.Fid = [content].Id;
+
+
+
             self.InsertChange = vars.Format(
                 "INSERT INTO {logTableFullName} ( [{fid}], [{action}], [{data}] ) "
                 + "OUTPUT INSERTED.* "

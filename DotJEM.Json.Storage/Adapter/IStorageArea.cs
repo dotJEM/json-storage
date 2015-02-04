@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Threading;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
@@ -14,6 +15,7 @@ namespace DotJEM.Json.Storage.Adapter
     public interface IStorageArea
     {
         string Name { get; }
+        IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
 
         IEnumerable<JObject> Get();
@@ -34,6 +36,11 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
+
+        public IStorageAreaLog Log
+        {
+            get { return log; }
+        }
 
         public IStorageAreaHistory History
         {
@@ -105,7 +112,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
 
                     var insert = RunDataReader(command.ExecuteReader()).Single();
-                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, LogAction.Create);
+                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
                     return insert;
                 }
             }
@@ -120,7 +127,6 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-
                     DateTime updateTime = DateTime.Now;
                     command.CommandText = Commands["Update"];
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
@@ -138,7 +144,7 @@ namespace DotJEM.Json.Storage.Adapter
                         history.Create(deleted, false);
 
                     var update = ReadPrefixedRow("INSERTED", reader);
-                    log.Insert(id, deleted, update, LogAction.Update);
+                    log.Insert(id, deleted, update, ChangeType.Update);
                     return update;
                 }
             }
@@ -161,7 +167,7 @@ namespace DotJEM.Json.Storage.Adapter
 
                     if (history != null) history.Create(deleted, true);
 
-                    log.Insert(guid, deleted, null, LogAction.Delete);
+                    log.Insert(guid, deleted, null, ChangeType.Delete);
                     return deleted;
                 }
             }

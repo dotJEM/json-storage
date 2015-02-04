@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
+using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -12,25 +13,61 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Linq
 {
-    //http://blogs.msdn.com/b/mattwar/archive/2008/11/18/linq-links.aspx
-    public class Entity
+    public class JObjectMetaEntity : DynamicMetaObject
     {
+        public JObjectMetaEntity(Expression expression, BindingRestrictions restrictions) : base(expression, restrictions)
+        {
+        }
+
+        public override DynamicMetaObject BindGetMember(GetMemberBinder binder)
+        {
+            return base.BindGetMember(binder);
+        }
+
+        public override DynamicMetaObject BindSetMember(SetMemberBinder binder, DynamicMetaObject value)
+        {
+            return base.BindSetMember(binder, value);
+        }
+    }
+
+    //http://blogs.msdn.com/b/mattwar/archive/2008/11/18/linq-links.aspx
+    public class JObjectEntity : DynamicObject
+    {
+        //Note Reserved fields
         public Guid Id { get; private set; }
         public string Reference { get; private set; }
-        public int Version { get; private set; }
         public string ContentType { get; private set; }
+        public int Version { get; private set; }
+
         public DateTime Created { get; private set; }
         public DateTime Updated { get; private set; }
-        public JObject Data { get; private set; }
+
+        public JObject Entity { get; set; }
+
+        public JObjectEntity()
+        {
+        }
+
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            // Huh?? DynamicProxyMetaObject<T>
+            result = Entity[binder.Name];
+            return true;
+        }
+
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            return base.TrySetMember(binder, value);
+        }
     }
 
     public class StorageAreaQ
     {
         private DbConnection connection;
 
-        public Query<Entity> Open(string area)
+        public Query<JObjectEntity> Open(string area)
         {
-            return new Query<Entity>(new StorageAreaQueryProvider(connection, area));
+            return new Query<JObjectEntity>(new StorageAreaQueryProvider(connection, area));
         }
 
         public StorageAreaQ(DbConnection connection)
@@ -75,7 +112,7 @@ namespace DotJEM.Json.Storage.Linq
     }
 
 
-    public class StorageAreaContext : IOrderedQueryable<Entity>
+    public class StorageAreaContext : IOrderedQueryable<JObjectEntity>
     {
         public StorageAreaContext(string area)
         {
@@ -83,9 +120,9 @@ namespace DotJEM.Json.Storage.Linq
             Expression = Expression.Constant(this);
         }
 
-        public IEnumerator<Entity> GetEnumerator()
+        public IEnumerator<JObjectEntity> GetEnumerator()
         {
-            return Provider.Execute<IEnumerable<Entity>>(Expression).GetEnumerator();
+            return Provider.Execute<IEnumerable<JObjectEntity>>(Expression).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -95,7 +132,7 @@ namespace DotJEM.Json.Storage.Linq
 
         public Type ElementType
         {
-            get { return typeof(Entity); }
+            get { return typeof(JObjectEntity); }
         }
 
         public Expression Expression { get; private set; }
@@ -289,7 +326,7 @@ namespace DotJEM.Json.Storage.Linq
                     throw new NotSupportedException(string.Format("The unary operator '{0}' is not supported", u.NodeType));
             }
             return u;
-        }
+    }
 
         protected override Expression VisitBinary(BinaryExpression b)
         {
