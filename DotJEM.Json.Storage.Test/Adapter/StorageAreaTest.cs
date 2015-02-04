@@ -11,20 +11,27 @@ using NUnit.Framework;
 namespace DotJEM.Json.Storage.Test.Adapter
 {
     [TestFixture]
-    public class StorageAreaTest
+    public class StorageAreaLogTest
     {
+        [Test]
         public void Bob_Change_Log()
         {
             IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
             IStorageArea area = context.Area("changelogtest");
 
-            area.Insert("content", JObject.Parse("{ name: 'Potatoes', count: 10 }"));
+            IStorageChanges changes = area.Log.Get(-1);
+            JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
+            create["unique_field"] = Guid.NewGuid();
 
-            
+            JObject inserted = area.Insert("content", create);
 
+            changes = area.Log.Get(changes.Token);
+
+            Assert.That(changes.Count(), Is.EqualTo(1));
+            Assert.That(changes.First().Entity, Is.EqualTo(inserted));
+
+            Console.WriteLine(changes.First().Entity);
         }
-
-
     }
 
     [TestFixture]

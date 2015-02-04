@@ -112,7 +112,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
 
                     var insert = RunDataReader(command.ExecuteReader()).Single();
-                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, LogAction.Create);
+                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
                     return insert;
                 }
             }
@@ -144,7 +144,7 @@ namespace DotJEM.Json.Storage.Adapter
                         history.Create(deleted, false);
 
                     var update = ReadPrefixedRow("INSERTED", reader);
-                    log.Insert(id, deleted, update, LogAction.Update);
+                    log.Insert(id, deleted, update, ChangeType.Update);
                     return update;
                 }
             }
@@ -167,7 +167,7 @@ namespace DotJEM.Json.Storage.Adapter
 
                     if (history != null) history.Create(deleted, true);
 
-                    log.Insert(guid, deleted, null, LogAction.Delete);
+                    log.Insert(guid, deleted, null, ChangeType.Delete);
                     return deleted;
                 }
             }

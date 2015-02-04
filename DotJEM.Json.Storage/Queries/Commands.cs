@@ -24,7 +24,8 @@ namespace DotJEM.Json.Storage.Queries
 
     public enum LogField
     {
-        Action
+        Action,
+        Changes
     }
 
     public interface ICommandFactory
@@ -221,18 +222,19 @@ namespace DotJEM.Json.Storage.Queries
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{logTableName}'");
 
-            self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
+            self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
 
-
-                //            SELECT [content].*, 
-                //    (SELECT TOP 1 [Action] FROM [nsw].[dbo].[content.changelog] x WHERE x.Id = cl.Token) as Act, 
-                //    cl.Token 
-                //  FROM [nsw].[dbo].[content]
-                //  INNER JOIN (
-                //    SELECT 
-                //        MAX(Id) as Token, Fid 
-                //    FROM [nsw].[dbo].[content.changelog] WHERE Id > @Lower AND Id < @Upper
-                //    GROUP BY Fid) cl ON cl.Fid = [content].Id;
+            self.SelectChangedObjectsDestinct = vars.Format(@"
+                SELECT {tableFullName}.*, 
+                       (SELECT TOP 1 [Action] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Action], 
+                       cl.Token 
+                  FROM {tableFullName}
+                  INNER JOIN (
+                    SELECT 
+                        MAX([{id}]) as Token, [{fid}] 
+                    FROM {logTableFullName} WHERE [{id}] > @token
+                    GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}];
+             ");
 
                 //SELECT [content].*, 
                 //    cl.Act, 

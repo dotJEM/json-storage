@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
 using Newtonsoft.Json.Linq;
@@ -11,26 +13,68 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
-        IStorageChanges Insert(Guid id, JObject original, JObject changed, LogAction action);
+        IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action);
         IStorageChanges Get(long token);
     }
 
-    public interface IStorageChanges
+    public interface IStorageChanges : IEnumerable<IStorageChange>
     {
         long Token { get; }
-        IEnumerable<JObject> Changes { get; }
+        IEnumerable<JObject> Creates { get; }
+        IEnumerable<JObject> Updates { get; }
+        IEnumerable<JObject> Deletes { get; }
     }
 
     public class StorageChanges : IStorageChanges
     {
-        public long Token { get; private set; }
-        public IEnumerable<JObject> Changes { get; private set; }
+        private readonly List<IStorageChange> changes;
 
-        public StorageChanges(long token, IEnumerable<JObject> changes)
+        public long Token { get { return changes.Max(change => change.Token); } }
+
+        public IEnumerable<JObject> Creates { get { return changes.Where(c => c.Type == ChangeType.Create).Select(c => c.Entity); } }
+        public IEnumerable<JObject> Updates { get { return changes.Where(c => c.Type == ChangeType.Update).Select(c => c.Entity); } }
+        public IEnumerable<JObject> Deletes { get { return changes.Where(c => c.Type == ChangeType.Delete).Select(c => c.Entity); } }
+
+        public StorageChanges(List<IStorageChange> changes)
+        {
+            this.changes = changes;
+        }
+
+        public IEnumerator<IStorageChange> GetEnumerator()
+        {
+            return changes.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+    }
+
+    public interface IStorageChange
+    {
+        long Token { get; }
+        ChangeType Type { get; }
+        JObject Entity { get; }
+    }
+
+    public class StorageChange : IStorageChange
+    {
+        public long Token { get; private set; }
+        public ChangeType Type { get; private set; }
+        public JObject Entity { get; private set; }
+
+        public StorageChange(long token, ChangeType type, JObject entity)
         {
             Token = token;
-            Changes = changes;
+            Type = type;
+            Entity = entity;
         }
+    }
+
+    public enum ChangeType
+    {
+        Create, Update, Delete
     }
 
     public class SqlServerStorageAreaLog : IStorageAreaLog
@@ -46,7 +90,7 @@ namespace DotJEM.Json.Storage.Adapter
             this.context = context;
         }
 
-        public IStorageChanges Insert(Guid id, JObject original, JObject changed, LogAction action)
+        public IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action)
         {
             EnsureTable();
 
@@ -60,48 +104,50 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(LogField.Action.ToString(), SqlDbType.VarChar)).Value = action.ToString();
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(Diff(original, changed));
 
-                    long token;
-                    JObject change = RunSingleDataReader(command.ExecuteReader(), out token);
-                    return new StorageChanges(token, new List<JObject> { change });
+                    SqlDataReader reader = command.ExecuteReader();
+                    reader.Read();
+                    long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
+
+                    return new StorageChanges(new List<IStorageChange> { new StorageChange(token, action, changed) });
                 }
             }
         }
 
-        private JObject RunSingleDataReader(SqlDataReader reader, out long token)
+        private IEnumerable<IStorageChange> RunDataReader(SqlDataReader reader)
         {
-            int tokenColumn = reader.GetOrdinal(StorageField.Id.ToString());
-            int idColumn = reader.GetOrdinal(StorageField.Fid.ToString());
+            int tokenColumn = reader.GetOrdinal("Token");
+            int actionColumn = reader.GetOrdinal("Action");
+            int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
             int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
-            if (reader.Read())
-            {
-                token = reader.GetInt64(tokenColumn);
-                return CreateJson(reader, dataColumn, idColumn);
-            }
-            token = -1;
-            return null;
-        }
 
-        private IEnumerable<JObject> RunDataReader(SqlDataReader reader, out long? token)
-        {
-            token = null;
-            int tokenColumn = reader.GetOrdinal(StorageField.Id.ToString());
-            int idColumn = reader.GetOrdinal(StorageField.Fid.ToString());
-            int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
-            
-            List<JObject> changeedObjects = new List<JObject>();
+            int refColumn = reader.GetOrdinal(StorageField.Reference.ToString());
+            int versionColumn = reader.GetOrdinal(StorageField.Version.ToString());
+            int contentTypeColumn = reader.GetOrdinal(StorageField.ContentType.ToString());
+            int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
+            int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
+
+
             while (reader.Read())
             {
-                token = reader.GetInt64(tokenColumn);
-                changeedObjects.Add(CreateJson(reader, dataColumn, idColumn));
+                long token = reader.GetInt64(tokenColumn);
+
+                ChangeType changeType;
+                Enum.TryParse(reader.GetString(actionColumn), out changeType);
+
+                yield return new StorageChange(token, changeType, CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn));
             }
-            return changeedObjects;
         }
 
-        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn)
+        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
         {
             JObject json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
+            json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = area.Name;
+            json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
+            json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
+            json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
+            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
             return json;
         }
 
@@ -121,12 +167,12 @@ namespace DotJEM.Json.Storage.Adapter
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
                     command.CommandText = area.Commands["SelectChanges"];
-                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.BigInt)).Value = token;
+                    command.CommandText = area.Commands["SelectChangedObjectsDestinct"];
+                    command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
                     //self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
 
-                    long? nextToken;
-                    IEnumerable<JObject> changes = RunDataReader(command.ExecuteReader(), out nextToken);
-                    return new StorageChanges(nextToken ?? token, changes);
+                    IEnumerable<IStorageChange> changes = RunDataReader(command.ExecuteReader());
+                    return new StorageChanges(changes.OrderByDescending(change => change.Token).ToList());
                 }
             }
         }
@@ -159,7 +205,6 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
-
         private void CreateTable()
         {
             using (SqlConnection connection = context.Connection())
@@ -178,10 +223,5 @@ namespace DotJEM.Json.Storage.Adapter
                 }
             }
         }
-    }
-
-    public enum LogAction
-    {
-        Create, Update, Delete
     }
 }
