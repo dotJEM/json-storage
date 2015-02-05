@@ -19,11 +19,11 @@ namespace DotJEM.Json.Storage.Test.Linq
             StorageAreaQ storage = new StorageAreaQ(new SqlConnection("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True"));
 
 
-            IQueryable<Entity> other = from entity in storage.Open("test")
+            IQueryable<JObjectEntity> other = from entity in storage.Open("test")
                 where entity.ContentType == "dummy"
                 select entity;
 
-            Entity[] list = other.ToArray();
+            JObjectEntity[] list = other.ToArray();
 
         }
 
