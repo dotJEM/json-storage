@@ -20,7 +20,7 @@ namespace DotJEM.Json.Storage.Test.Linq
 
 
             IQueryable<JObjectEntity> other = from entity in storage.Open("test")
-                where entity.ContentType == "dummy"
+                where entity.ContentType == "dummy" 
                 select entity;
 
             JObjectEntity[] list = other.ToArray();
