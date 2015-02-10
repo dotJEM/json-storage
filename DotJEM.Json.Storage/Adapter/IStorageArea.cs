@@ -31,8 +31,8 @@ namespace DotJEM.Json.Storage.Adapter
     {
         private bool initialized;
         private readonly SqlServerStorageContext context;
-        private readonly IStorageAreaHistory history;
-        private readonly IStorageAreaLog log;
+        private readonly SqlServerStorageAreaHistory history;
+        private readonly SqlServerStorageAreaLog log;
         private readonly object padlock = new object();
 
         public string Name { get; private set; }

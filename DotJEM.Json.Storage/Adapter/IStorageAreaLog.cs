@@ -13,7 +13,7 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
-        IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action);
+        IStorageChanges Get();
         IStorageChanges Get(long token);
     }
 
@@ -29,7 +29,9 @@ namespace DotJEM.Json.Storage.Adapter
     {
         private readonly List<IStorageChange> changes;
 
-        public long Token { get { return changes.Max(change => change.Token); } }
+        private readonly Lazy<long> max;
+
+        public long Token { get { return max.Value; } }
 
         public IEnumerable<JObject> Creates { get { return changes.Where(c => c.Type == ChangeType.Create).Select(c => c.Entity); } }
         public IEnumerable<JObject> Updates { get { return changes.Where(c => c.Type == ChangeType.Update).Select(c => c.Entity); } }
@@ -38,6 +40,7 @@ namespace DotJEM.Json.Storage.Adapter
         public StorageChanges(List<IStorageChange> changes)
         {
             this.changes = changes;
+            max = new Lazy<long>(() => changes.Max(change => change.Token));
         }
 
         public IEnumerator<IStorageChange> GetEnumerator()
@@ -80,6 +83,7 @@ namespace DotJEM.Json.Storage.Adapter
     public class SqlServerStorageAreaLog : IStorageAreaLog
     {
         private bool initialized;
+        private long previousToken = -1;
         private readonly SqlServerStorageArea area;
         private readonly SqlServerStorageContext context;
         private readonly object padlock = new object();
@@ -169,6 +173,11 @@ namespace DotJEM.Json.Storage.Adapter
             return new JObject();
         }
 
+        public IStorageChanges Get()
+        {
+            return Get(previousToken);
+        }
+
         public IStorageChanges Get(long token)
         {
             EnsureTable();
@@ -177,13 +186,12 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = area.Commands["SelectChanges"];
                     command.CommandText = area.Commands["SelectChangedObjectsDestinct"];
                     command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
-                    //self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @{id} ORDER BY [{id}] DESC;");
 
-                    IEnumerable<IStorageChange> changes = RunDataReader(command.ExecuteReader());
-                    return new StorageChanges(changes.OrderByDescending(change => change.Token).ToList());
+                    StorageChanges changes = new StorageChanges(RunDataReader(command.ExecuteReader()).ToList());
+                    previousToken = changes.Token;
+                    return changes;
                 }
             }
         }
