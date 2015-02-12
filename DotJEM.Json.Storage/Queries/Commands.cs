@@ -227,6 +227,7 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectChangedObjectsDestinct = vars.Format(@"
                 SELECT {tableFullName}.*, 
                        (SELECT TOP 1 [Action] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Action], 
+                       (SELECT TOP 1 [Data] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Payload],
                        cl.Token,
                        cl.[{fid}]
                   FROM {tableFullName}

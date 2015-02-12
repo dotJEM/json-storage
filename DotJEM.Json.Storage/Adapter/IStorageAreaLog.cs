@@ -28,19 +28,17 @@ namespace DotJEM.Json.Storage.Adapter
     public class StorageChanges : IStorageChanges
     {
         private readonly List<IStorageChange> changes;
+        public long Token { get; private set ; }
 
-        private readonly Lazy<long> max;
-
-        public long Token { get { return max.Value; } }
-
+        //TODO: Make these laze and cache.
         public IEnumerable<JObject> Creates { get { return changes.Where(c => c.Type == ChangeType.Create).Select(c => c.Entity); } }
         public IEnumerable<JObject> Updates { get { return changes.Where(c => c.Type == ChangeType.Update).Select(c => c.Entity); } }
         public IEnumerable<JObject> Deletes { get { return changes.Where(c => c.Type == ChangeType.Delete).Select(c => c.Entity); } }
 
-        public StorageChanges(List<IStorageChange> changes)
+        public StorageChanges(long token, List<IStorageChange> changes)
         {
             this.changes = changes;
-            max = new Lazy<long>(() => changes.Max(change => change.Token));
+            Token = token;
         }
 
         public IEnumerator<IStorageChange> GetEnumerator()
@@ -112,12 +110,12 @@ namespace DotJEM.Json.Storage.Adapter
                     reader.Read();
                     long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
 
-                    return new StorageChanges(new List<IStorageChange> { new StorageChange(token, action, changed) });
+                    return new StorageChanges(token, new List<IStorageChange> { new StorageChange(token, action, changed) });
                 }
             }
         }
 
-        private IEnumerable<IStorageChange> RunDataReader(SqlDataReader reader)
+        private StorageChanges RunDataReader(long startToken, SqlDataReader reader)
         {
             int tokenColumn = reader.GetOrdinal("Token");
             int actionColumn = reader.GetOrdinal("Action");
@@ -131,25 +129,31 @@ namespace DotJEM.Json.Storage.Adapter
             int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
             int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
 
-
+            List<IStorageChange> changes = new List<IStorageChange>();
+            long maxToken = startToken;
             while (reader.Read())
             {
                 long token = reader.GetInt64(tokenColumn);
+                maxToken = Math.Max(maxToken, token);
 
                 ChangeType changeType;
                 Enum.TryParse(reader.GetString(actionColumn), out changeType);
 
-                yield return new StorageChange(token, changeType,
+                var change =  new StorageChange(token, changeType,
                     changeType != ChangeType.Delete 
                     ? CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn)
                     : CreateShell(reader, fidColumn));
+
+                changes.Add(change);
             }
+            return new StorageChanges(maxToken, changes);
         }
 
         private JObject CreateShell(SqlDataReader reader, int fidColumn)
         {
             JObject json = new JObject();
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(fidColumn);
+            json[context.Configuration.Fields[JsonField.ContentType]] = "Dummy";
             return json;
         }
 
@@ -168,9 +172,13 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject Diff(JObject original, JObject changed)
         {
+            JObject either = original ?? changed;
+            JObject change = new JObject();
+            change[context.Configuration.Fields[JsonField.ContentType]] = either[context.Configuration.Fields[JsonField.ContentType]];
+
             //TODO: Implemnt simple diff (record changed properties)
             //      - Could also use this for change details...
-            return new JObject();
+            return change;
         }
 
         public IStorageChanges Get()
@@ -189,7 +197,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.CommandText = area.Commands["SelectChangedObjectsDestinct"];
                     command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
 
-                    StorageChanges changes = new StorageChanges(RunDataReader(command.ExecuteReader()).ToList());
+                    StorageChanges changes = RunDataReader(token, command.ExecuteReader());
                     previousToken = changes.Token;
                     return changes;
                 }

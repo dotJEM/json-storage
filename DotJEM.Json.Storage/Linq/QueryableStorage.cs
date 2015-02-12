@@ -7,11 +7,7 @@ using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using Remotion.Linq;
-using Remotion.Linq.Parsing.Structure;
 
 namespace DotJEM.Json.Storage.Linq
 {
@@ -78,23 +74,7 @@ namespace DotJEM.Json.Storage.Linq
         }
     }
 
-    public class StorageAreaQueryProvider2 : QueryableBase<JObjectEntity>
-    {
-        public StorageAreaQueryProvider2(IQueryProvider provider)
-            : base(provider)
-        {
-        }
 
-        public StorageAreaQueryProvider2(IQueryParser queryParser, IQueryExecutor executor) 
-            : base(queryParser, executor)
-        {
-        }
-
-        public StorageAreaQueryProvider2(IQueryProvider provider, Expression expression) 
-            : base(provider, expression)
-        {
-        }
-    }
 
     public class StorageAreaQueryProvider : QueryProvider
     {
