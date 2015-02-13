@@ -28,7 +28,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             changes = area.Log.Get(changes.Token);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
-            Assert.That(changes.Creates.Count(), Is.EqualTo(1));
+            Assert.That(changes.Created.Count(), Is.EqualTo(1));
             Assert.That(changes.First().Entity, Is.EqualTo(inserted));
 
             Console.WriteLine(changes.First().Entity);
@@ -52,7 +52,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             changes = area.Log.Get(changes.Token);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
-            Assert.That(changes.Updates.Count(), Is.EqualTo(1));
+            Assert.That(changes.Updated.Count(), Is.EqualTo(1));
             Assert.That(changes.First().Entity, Is.EqualTo(updated));
 
             Console.WriteLine(changes.First().Entity);
@@ -76,7 +76,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             changes = area.Log.Get(changes.Token);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
-            Assert.That(changes.Deletes.Count(), Is.EqualTo(1));
+            Assert.That(changes.Deleted.Count(), Is.EqualTo(1));
             Assert.That(changes.First().Entity, Is.EqualTo(JObject.Parse("{ $id: '" + inserted["$id"] + "' }")));
 
             Console.WriteLine(changes.First().Entity);

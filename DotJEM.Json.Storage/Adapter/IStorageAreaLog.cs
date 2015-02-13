@@ -20,25 +20,68 @@ namespace DotJEM.Json.Storage.Adapter
     public interface IStorageChanges : IEnumerable<IStorageChange>
     {
         long Token { get; }
-        IEnumerable<JObject> Creates { get; }
-        IEnumerable<JObject> Updates { get; }
-        IEnumerable<JObject> Deletes { get; }
+        ChangeCount Count { get; }
+        IEnumerable<JObject> Created { get; }
+        IEnumerable<JObject> Updated { get; }
+        IEnumerable<JObject> Deleted { get; }
+    }
+
+    public struct ChangeCount
+    {
+        public int Total { get { return Created + Updated + Deleted; } }
+
+        public int Created { get; private set; }
+        public int Updated { get; private set; }
+        public int Deleted { get; private set; }
+
+        public ChangeCount(int created, int updated, int deleted)
+            : this()
+        {
+            Created = created;
+            Updated = updated;
+            Deleted = deleted;
+        }
+
+        public static ChangeCount operator +(ChangeCount left, ChangeCount right)
+        {
+            return
+                new ChangeCount()
+                {
+                    Created = left.Created + right.Created,
+                    Updated = left.Updated + right.Updated,
+                    Deleted = left.Deleted + right.Deleted
+                };
+        }
+
+        public static implicit operator int(ChangeCount count)
+        {
+            return count.Total;
+        }
+
+        public override string ToString()
+        {
+            return string.Format("Created: {0}, Updated: {1}, Deleted: {2}", Created, Updated, Deleted);
+        }
     }
 
     public class StorageChanges : IStorageChanges
     {
         private readonly List<IStorageChange> changes;
-        public long Token { get; private set ; }
-
-        //TODO: Make these laze and cache.
-        public IEnumerable<JObject> Creates { get { return changes.Where(c => c.Type == ChangeType.Create).Select(c => c.Entity); } }
-        public IEnumerable<JObject> Updates { get { return changes.Where(c => c.Type == ChangeType.Update).Select(c => c.Entity); } }
-        public IEnumerable<JObject> Deletes { get { return changes.Where(c => c.Type == ChangeType.Delete).Select(c => c.Entity); } }
+        private readonly ILookup<ChangeType, JObject> changeLookup;
+        private readonly Lazy<ChangeCount> count;
+        
+        public long Token { get; private set; }
+        public ChangeCount Count { get { return count.Value; } }
+        public IEnumerable<JObject> Created { get { return changeLookup[ChangeType.Create]; } }
+        public IEnumerable<JObject> Updated { get { return changeLookup[ChangeType.Update]; } }
+        public IEnumerable<JObject> Deleted { get { return changeLookup[ChangeType.Delete]; } }
 
         public StorageChanges(long token, List<IStorageChange> changes)
         {
-            this.changes = changes;
             Token = token;
+            this.changes = changes;
+            this.changeLookup = changes.ToLookup(change => change.Type, change => change.Entity);
+            this.count = new Lazy<ChangeCount>(() => new ChangeCount(Created.Count(),Updated.Count(),Deleted.Count()));
         }
 
         public IEnumerator<IStorageChange> GetEnumerator()
@@ -139,11 +182,10 @@ namespace DotJEM.Json.Storage.Adapter
                 ChangeType changeType;
                 Enum.TryParse(reader.GetString(actionColumn), out changeType);
 
-                var change =  new StorageChange(token, changeType,
-                    changeType != ChangeType.Delete 
+                var change = new StorageChange(token, changeType,
+                    changeType != ChangeType.Delete
                     ? CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn)
                     : CreateShell(reader, fidColumn));
-
                 changes.Add(change);
             }
             return new StorageChanges(maxToken, changes);
