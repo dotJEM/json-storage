@@ -230,7 +230,9 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IStorageChanges Get(long token)
         {
-            EnsureTable();
+            if(!TableExists)
+                return new StorageChanges(-1, new List<IStorageChange>());
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
