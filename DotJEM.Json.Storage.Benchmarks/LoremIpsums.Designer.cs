@@ -161,18 +161,18 @@ namespace DotJEM.Json.Storage.Benchmarks {
         
         /// <summary>
         ///   Looks up a localized string similar to contemplons ce trésor de grâces florentines
-        ///	dans l&apos;ondulation de ce corps musculeux
-        ///	l&apos;elégance et la force abondent soeurs divines
-        ///	cette femme morceau vraiment miraculeux
-        ///	divinement robuste adorablement mince
-        ///	est faite pour trôner sur des lits somptueux
-        ///	et charmer les loisirs d&apos;un pontife ou d&apos;un prince
+        ///dans l&apos;ondulation de ce corps musculeux
+        ///l&apos;elégance et la force abondent soeurs divines
+        ///cette femme morceau vraiment miraculeux
+        ///divinement robuste adorablement mince
+        ///est faite pour trôner sur des lits somptueux
+        ///et charmer les loisirs d&apos;un pontife ou d&apos;un prince
         ///
-        ///	 aussi vois ce souris fin et voluptueux
-        ///	ou la fatuité promene son extase
-        ///	ce long regard sournois langoureux et moqueur
-        ///	ce visage mignard tout encadré de gaze
-        ///	dont chaque trait nous di [rest of string was truncated]&quot;;.
+        /// aussi vois ce souris fin et voluptueux
+        ///ou la fatuité promene son extase
+        ///ce long regard sournois langoureux et moqueur
+        ///ce visage mignard tout encadré de gaze
+        ///dont chaque trait nous dit avec un a [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Lemasque {
             get {
