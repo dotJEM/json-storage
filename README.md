@@ -10,8 +10,15 @@ IStorageContext context = new SqlServerStorageContext("...");
 ITableAdapter area = context.Area("Test");
 
 JObject item = area.Insert("item", JObject.Parse("{ name: 'Potatoes' }")); //Normally you would recieve a JObject from a client.
-JObject item2 = area.Get("item").First(); //Query all...
-JObject item3 = area.Get("item", item.Id); //Query by ID...
+
+//Query all...
+JObject item2 = area.Get("item").First(); 
+
+//Query by ID...
+//      note that the field name here is configurable
+//      so for easier C# access we can use: config.MapField(JsonField.Id, "Id");
+//      and then do: area.Get("item", item.Id);
+JObject item3 = area.Get("item", item['$id']); 
 
 Assert.That(item, Is.EqualTo(item2));
 Assert.That(item, Is.EqualTo(item3));
