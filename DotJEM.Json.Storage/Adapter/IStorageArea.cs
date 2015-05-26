@@ -15,6 +15,8 @@ namespace DotJEM.Json.Storage.Adapter
     public interface IStorageArea
     {
         string Name { get; }
+        bool HistoryEnabled { get; }
+
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
 
@@ -36,6 +38,7 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
+        public bool HistoryEnabled { get; private set; }
 
         public IStorageAreaLog Log
         {
@@ -68,11 +71,12 @@ namespace DotJEM.Json.Storage.Adapter
 
             log = new SqlServerStorageAreaLog(this, context);
 
-            if (context.Configuration[name].HistoryEnabled)
+            if (HistoryEnabled = context.Configuration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
             }
         }
+
 
         public IEnumerable<JObject> Get()
         {
