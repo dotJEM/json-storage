@@ -3,27 +3,23 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Threading;
 using DotJEM.Json.Storage.Configuration;
+using DotJEM.Json.Storage.Migration;
 using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter
 {
-
     public interface IStorageArea
     {
         string Name { get; }
         bool HistoryEnabled { get; }
-
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
-
         IEnumerable<JObject> Get();
         IEnumerable<JObject> Get(string contentType);
         JObject Get(Guid guid);
-
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
         JObject Delete(Guid guid);
@@ -144,7 +140,7 @@ namespace DotJEM.Json.Storage.Adapter
                     reader.Read();
 
                     var deleted = ReadPrefixedRow("DELETED", reader);
-                    if(history != null)
+                    if (history != null)
                         history.Create(deleted, false);
 
                     var update = ReadPrefixedRow("INSERTED", reader);
@@ -189,12 +185,54 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.AddRange(parameters);
 
                     //TODO: Dynamically read columns.
-                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
-                        yield return json;
+                    // TODO: Migrate may trigger a call to Update which establishes another SQL connection. Is that OK while this Get connection is active?
+                    foreach (var json in RunDataReader(command.ExecuteReader()))
+                        yield return Migrate(json);
 
                     command.Parameters.Clear();
                 }
             }
+        }
+
+        private JObject Migrate(JObject json)
+        {
+            var dataMigrators = context.Migrators;
+
+            var objectSchemaVersion = json[context.Configuration.Fields[JsonField.SchemaVersion]];
+            var startMigrationIndex = GetMigrationStartIndex(dataMigrators,
+                objectSchemaVersion != null ? objectSchemaVersion.ToString() : "");
+
+            if (startMigrationIndex < dataMigrators.Length)
+            {
+                // Migrate
+                var migratedJson = json;
+                for (var i = startMigrationIndex; i < dataMigrators.Length; i++)
+                {
+                    migratedJson = dataMigrators[i].Migrate(migratedJson);
+                }
+                migratedJson[context.Configuration.Fields[JsonField.SchemaVersion]] =
+                    context.Configuration.VersionProvider.Current;
+
+                var guid = new Guid(json[context.Configuration.Fields[JsonField.Id]].ToString());
+                Update(guid, migratedJson);
+
+                return migratedJson;
+            }
+            // Up-to-date
+            return json;
+        }
+
+        private int GetMigrationStartIndex(IDataMigrator[] dataMigrators, string objectSchemaVersion)
+        {
+            int i;
+            for (i = dataMigrators.Length - 1; i >= 0; i--)
+            {
+                if (context.Configuration.VersionProvider.Compare(dataMigrators[i].Version(), objectSchemaVersion) <= 0)
+                {
+                    break;
+                }
+            }
+            return i + 1;
         }
 
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
@@ -224,8 +262,6 @@ namespace DotJEM.Json.Storage.Adapter
             json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
             return json;
         }
-
-
 
         private JObject ReadPrefixedRow(string prefix, SqlDataReader reader)
         {
@@ -297,7 +333,7 @@ namespace DotJEM.Json.Storage.Adapter
         private static readonly char[] digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
         /// <summary>
-        /// Encode the given number into a Base36 string
+        ///     Encode the given number into a Base36 string
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
@@ -315,7 +351,7 @@ namespace DotJEM.Json.Storage.Adapter
         }
 
         /// <summary>
-        /// Decode the Base36 Encoded string into a number
+        ///     Decode the Base36 Encoded string into a number
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>

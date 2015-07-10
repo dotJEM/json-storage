@@ -77,7 +77,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Deleted.Count(), Is.EqualTo(1));
-            Assert.That(changes.First().Entity, Is.EqualTo(JObject.Parse("{ $id: '" + inserted["$id"] + "' }")));
+            Assert.That(changes.First().Entity, Is.EqualTo(JObject.Parse("{ $id: '" + inserted["$id"] + "', $contentType: 'Dummy' }")));
 
             Console.WriteLine(changes.First().Entity);
         }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using DotJEM.Json.Storage.Migration;
 
 namespace DotJEM.Json.Storage.Configuration
 {
@@ -7,6 +8,7 @@ namespace DotJEM.Json.Storage.Configuration
     {
         IStorageConfigurator MapField(JsonField field, string name);
         IStorageAreaConfigurator Area(string name = "content");
+        IVersionProvider VersionProvider { get; set; }
     }
 
     public interface IStorageConfiguration
@@ -34,7 +36,9 @@ namespace DotJEM.Json.Storage.Configuration
             MapField(JsonField.Created, "$created");
             MapField(JsonField.Updated, "$updated");
             MapField(JsonField.Area, "$area");
+            MapField(JsonField.SchemaVersion, "$schemaVersion");
             readonlyFields = new ReadOnlyDictionary<JsonField, string>(fields);
+            VersionProvider = new NoVersionProvider();
         }
 
         public IDictionary<JsonField, string> Fields
@@ -54,6 +58,10 @@ namespace DotJEM.Json.Storage.Configuration
             return configuration.Configurator;
         }
 
-        
+        public IVersionProvider VersionProvider
+        {
+            get ;
+            set ;
+        }
     }
 }
