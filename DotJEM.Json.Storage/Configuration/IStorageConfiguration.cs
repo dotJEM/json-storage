@@ -27,6 +27,8 @@ namespace DotJEM.Json.Storage.Configuration
             get { return configurations.ContainsKey(key) ? configurations[key] : (configurations[key] = new StorageAreaConfiguration()); }
         }
 
+        public IVersionProvider VersionProvider { get; set; }
+
         public StorageConfiguration()
         {
             MapField(JsonField.Id, "$id");
@@ -37,8 +39,9 @@ namespace DotJEM.Json.Storage.Configuration
             MapField(JsonField.Updated, "$updated");
             MapField(JsonField.Area, "$area");
             MapField(JsonField.SchemaVersion, "$schemaVersion");
+            
             readonlyFields = new ReadOnlyDictionary<JsonField, string>(fields);
-            VersionProvider = new NoVersionProvider();
+            VersionProvider = new NullVersionProvider();
         }
 
         public IDictionary<JsonField, string> Fields
@@ -58,10 +61,5 @@ namespace DotJEM.Json.Storage.Configuration
             return configuration.Configurator;
         }
 
-        public IVersionProvider VersionProvider
-        {
-            get ;
-            set ;
-        }
     }
 }

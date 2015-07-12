@@ -29,8 +29,10 @@ namespace DotJEM.Json.Storage.Adapter
     {
         private bool initialized;
         private readonly SqlServerStorageContext context;
+        private readonly StorageMigrationManager migration;
         private readonly SqlServerStorageAreaHistory history;
         private readonly SqlServerStorageAreaLog log;
+        
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
@@ -54,12 +56,13 @@ namespace DotJEM.Json.Storage.Adapter
 
         internal ICommandFactory Commands { get; private set; }
 
-        public SqlServerStorageArea(SqlServerStorageContext context, string name)
+        public SqlServerStorageArea(SqlServerStorageContext context, string name, StorageMigrationManager migration)
         {
             Name = name;
             Validator.ValidateArea(name);
 
             this.context = context;
+            this.migration = migration;
             using (var conn = context.Connection())
             {
                 Commands = new SqlServerCommandFactory(conn.Database, name);
@@ -124,29 +127,34 @@ namespace DotJEM.Json.Storage.Adapter
 
             using (SqlConnection connection = context.Connection())
             {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    DateTime updateTime = DateTime.Now;
-                    command.CommandText = Commands["Update"];
-                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
-                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
+                return InternalUpdate(id, json, connection);
+            }
+        }
 
-                    SqlDataReader reader = command.ExecuteReader();
-                    if (!reader.HasRows)
-                        throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+        private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
+        {
+            connection.Open();
+            using (SqlCommand command = new SqlCommand {Connection = connection})
+            {
+                DateTime updateTime = DateTime.Now;
+                command.CommandText = Commands["Update"];
+                command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
-                    reader.Read();
+                SqlDataReader reader = command.ExecuteReader();
+                if (!reader.HasRows)
+                    throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
 
-                    var deleted = ReadPrefixedRow("DELETED", reader);
-                    if (history != null)
-                        history.Create(deleted, false);
+                reader.Read();
 
-                    var update = ReadPrefixedRow("INSERTED", reader);
-                    log.Insert(id, deleted, update, ChangeType.Update);
-                    return update;
-                }
+                var deleted = ReadPrefixedRow("DELETED", reader);
+                if (history != null)
+                    history.Create(deleted, false);
+
+                var update = ReadPrefixedRow("INSERTED", reader);
+                log.Insert(id, deleted, update, ChangeType.Update);
+                return update;
             }
         }
 
@@ -176,7 +184,7 @@ namespace DotJEM.Json.Storage.Adapter
         private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
         {
             EnsureTable();
-
+            string idField = context.Configuration.Fields[JsonField.Id];
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
@@ -186,53 +194,19 @@ namespace DotJEM.Json.Storage.Adapter
 
                     //TODO: Dynamically read columns.
                     // TODO: Migrate may trigger a call to Update which establishes another SQL connection. Is that OK while this Get connection is active?
-                    foreach (var json in RunDataReader(command.ExecuteReader()))
-                        yield return Migrate(json);
+                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
+                    {
+                        var copy = json;
+                        if (migration.Migrate(ref copy))
+                        {
+                            copy = InternalUpdate((Guid) json[idField], copy, connection);
+                        }
+                        yield return copy;
+                    }
 
                     command.Parameters.Clear();
                 }
             }
-        }
-
-        private JObject Migrate(JObject json)
-        {
-            var dataMigrators = context.Migrators;
-
-            var objectSchemaVersion = json[context.Configuration.Fields[JsonField.SchemaVersion]];
-            var startMigrationIndex = GetMigrationStartIndex(dataMigrators,
-                objectSchemaVersion != null ? objectSchemaVersion.ToString() : "");
-
-            if (startMigrationIndex < dataMigrators.Length)
-            {
-                // Migrate
-                var migratedJson = json;
-                for (var i = startMigrationIndex; i < dataMigrators.Length; i++)
-                {
-                    migratedJson = dataMigrators[i].Migrate(migratedJson);
-                }
-                migratedJson[context.Configuration.Fields[JsonField.SchemaVersion]] =
-                    context.Configuration.VersionProvider.Current;
-
-                var guid = new Guid(json[context.Configuration.Fields[JsonField.Id]].ToString());
-                Update(guid, migratedJson);
-
-                return migratedJson;
-            }
-            // Up-to-date
-            return json;
-        }
-
-        private int GetMigrationStartIndex(IDataMigrator[] dataMigrators, string objectSchemaVersion)
-        {
-            int i;
-            for (i = dataMigrators.Length - 1; i >= 0; i--)
-            {
-                if (context.Configuration.VersionProvider.Compare(dataMigrators[i].Version(), objectSchemaVersion) <= 0)
-                {
-                    break;
-                }
-            }
-            return i + 1;
         }
 
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)

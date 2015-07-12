@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace DotJEM.Json.Storage.Migration
 {
-    public interface IVersionProvider
+    public interface IVersionProvider : IComparer<string>
     {
         string Current { get; }
-        int Compare(string version1, string version2);
     }
 }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DotJEM.Json.Storage.Migration
 {
-    public class NoVersionProvider : IVersionProvider
+    public class NullVersionProvider : IVersionProvider
     {
         public string Current
         {
