@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Migration;
 using DotJEM.Json.Storage.Migration.Collections;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+
+// ReSharper disable StringCompareToIsCultureSpecific
 
 namespace DotJEM.Json.Storage.Test.Migration.Collection
 {
@@ -21,7 +21,7 @@ namespace DotJEM.Json.Storage.Test.Migration.Collection
             lookup.Add(new DataMigratorEntry("temp", "1", new FakeMigrator("One")));
             lookup.Add(new DataMigratorEntry("temp", "3", new FakeMigrator("Three")));
             lookup.Add(new DataMigratorEntry("temp", "2", new FakeMigrator("Two")));
-            Assert.That(lookup.Path("0"), Has.Count.EqualTo(3));
+            Assert.That(lookup.MigrationPath("0"), Has.Count.EqualTo(3));
         }
 
         [Test]
@@ -31,7 +31,7 @@ namespace DotJEM.Json.Storage.Test.Migration.Collection
             lookup.Add(new DataMigratorEntry("temp", "1", new FakeMigrator("1.One")));
             lookup.Add(new DataMigratorEntry("temp", "3", new FakeMigrator("3.Three")));
             lookup.Add(new DataMigratorEntry("temp", "2", new FakeMigrator("2.Two")));
-            Assert.That(lookup.Path("0"), Is.Ordered.Using<FakeMigrator>((a, b) => a.Name.CompareTo(b.Name)));
+            Assert.That(lookup.MigrationPath("0"), Is.Ordered.Using<FakeMigrator>((a, b) => a.Name.CompareTo(b.Name)));
         }
 
         [Test]
@@ -41,19 +41,30 @@ namespace DotJEM.Json.Storage.Test.Migration.Collection
             lookup.Add(new DataMigratorEntry("temp", "1", new FakeMigrator("1.One")));
             lookup.Add(new DataMigratorEntry("temp", "3", new FakeMigrator("3.Three")));
             lookup.Add(new DataMigratorEntry("temp", "2", new FakeMigrator("2.Two")));
-            //TODO: Depends on if we are talking target or sorce version.
-            Assert.That(lookup.Path("2"), Is.EqualTo(new [] { new FakeMigrator("2.Two"), new FakeMigrator("3.Three") }));
+            Assert.That(lookup.MigrationPath("2"), Is.EqualTo(new [] { new FakeMigrator("3.Three") }));
         }
 
         [Test]
-        public void Path_2in134_ReturnsTwoAndThree()
+        public void Path_2in134_ReturnsThreeAndFour()
         {
             SortedPartitionLookup lookup = new SortedPartitionLookup(new FakeComparer());
             lookup.Add(new DataMigratorEntry("temp", "3", new FakeMigrator("3.Three")));
             lookup.Add(new DataMigratorEntry("temp", "4", new FakeMigrator("4.Four")));
             lookup.Add(new DataMigratorEntry("temp", "1", new FakeMigrator("1.One")));
-            //TODO: Depends on if we are talking target or sorce version.
-            Assert.That(lookup.Path("2"), Is.EqualTo(new[] { new FakeMigrator("3.Three"), new FakeMigrator("4.Four") }));
+            Assert.That(lookup.MigrationPath("2"), Is.EqualTo(new[] { new FakeMigrator("3.Three"), new FakeMigrator("4.Four") }));
+        }
+
+        [Test]
+        public void Path_2in122234_ReturnsThreeAndFour()
+        {
+            SortedPartitionLookup lookup = new SortedPartitionLookup(new FakeComparer());
+            lookup.Add(new DataMigratorEntry("temp", "1", new FakeMigrator("1.One")));
+            lookup.Add(new DataMigratorEntry("temp", "2", new FakeMigrator("2.Two A")));
+            lookup.Add(new DataMigratorEntry("temp", "2", new FakeMigrator("2.Two B")));
+            lookup.Add(new DataMigratorEntry("temp", "2", new FakeMigrator("2.Two C")));
+            lookup.Add(new DataMigratorEntry("temp", "3", new FakeMigrator("3.Three")));
+            lookup.Add(new DataMigratorEntry("temp", "4", new FakeMigrator("4.Four")));
+            Assert.That(lookup.MigrationPath("2"), Is.EqualTo(new[] { new FakeMigrator("3.Three"), new FakeMigrator("4.Four") }));
         }
 
         public class FakeComparer : IComparer<DataMigratorEntry>

@@ -102,6 +102,10 @@ namespace DotJEM.Json.Storage.Adapter
         {
             EnsureTable();
 
+            JObject jsonWithMetadata = (JObject) json.DeepClone();
+            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] =
+                context.Configuration.VersionProvider.Current;
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
@@ -112,7 +116,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
 
                     var insert = RunDataReader(command.ExecuteReader()).Single();
                     log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
@@ -127,13 +131,13 @@ namespace DotJEM.Json.Storage.Adapter
 
             using (SqlConnection connection = context.Connection())
             {
+                connection.Open();
                 return InternalUpdate(id, json, connection);
             }
         }
 
         private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
         {
-            connection.Open();
             using (SqlCommand command = new SqlCommand {Connection = connection})
             {
                 DateTime updateTime = DateTime.Now;
@@ -184,29 +188,54 @@ namespace DotJEM.Json.Storage.Adapter
         private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
         {
             EnsureTable();
-            string idField = context.Configuration.Fields[JsonField.Id];
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
-                {
-                    command.Parameters.AddRange(parameters);
 
-                    //TODO: Dynamically read columns.
-                    // TODO: Migrate may trigger a call to Update which establishes another SQL connection. Is that OK while this Get connection is active?
-                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
-                    {
-                        var copy = json;
-                        if (migration.Migrate(ref copy))
-                        {
-                            copy = InternalUpdate((Guid) json[idField], copy, connection);
-                        }
-                        yield return copy;
-                    }
+                var entities = GetEntities(cmd, parameters, connection);
 
-                    command.Parameters.Clear();
-                }
+                // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
+                entities = MigrateEntities(entities, connection);
+
+                return entities;
             }
+        }
+
+        private List<JObject> GetEntities(string cmd, SqlParameter[] parameters, SqlConnection connection)
+        {
+            List<JObject> entities = new List<JObject>();
+            using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
+            {
+                command.Parameters.AddRange(parameters);
+
+                //TODO: Dynamically read columns.
+                using (SqlDataReader dataReader = command.ExecuteReader())
+                {
+                    foreach (JObject json in RunDataReader(dataReader))
+                    {
+                        entities.Add(json);
+                    }
+                }
+                command.Parameters.Clear();
+            }
+            return entities;
+        }
+
+        private List<JObject> MigrateEntities(IEnumerable<JObject> entities, SqlConnection connection)
+        {
+            List<JObject> migrated = new List<JObject>();
+            string idField = context.Configuration.Fields[JsonField.Id];
+            foreach (var entity in entities)
+            {
+                var copy = entity;
+                if (migration.Migrate(ref copy))
+                {
+                    copy = InternalUpdate((Guid) entity[idField], copy, connection);
+                }
+                migrated.Add(copy);
+            }
+            return migrated;
         }
 
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using DotJEM.Json.Storage.Adapter;
@@ -21,33 +20,32 @@ namespace DotJEM.Json.Storage
     {
         private readonly string connectionString;
         private readonly Dictionary<string, IStorageArea> openAreas = new Dictionary<string, IStorageArea>();
-        private readonly Lazy<StorageMigrationManager> manager;
+        private readonly StorageMigrationManager manager;
 
         public IBsonSerializer Serializer { get; private set; }
         public IStorageConfigurator Configure { get { return Configuration; } }
-        public IDataMigratorCollection Migrators { get; private set; }
+
+        public IDataMigratorCollection Migrators
+        {
+            get { return manager.Migrators; }
+        }
 
         internal StorageConfiguration Configuration { get; private set; }
 
         public SqlServerStorageContext(string connectionString)
         {
-            Migrators = new DataMigratorCollection();
+            this.connectionString = connectionString;
+
             Serializer = new BsonSerializer();
             Configuration = new StorageConfiguration();
 
-            this.connectionString = connectionString;
-
-            manager = new Lazy<StorageMigrationManager>(() =>
-                new StorageMigrationManager(
-                    Migrators = Migrators.AsMapped(new DataMigratorComparer(Configuration.VersionProvider)), 
-                    Configuration.VersionProvider, 
-                    Configuration.Fields[JsonField.SchemaVersion])); 
+            manager = new StorageMigrationManager(Configuration); 
         }
 
         public IStorageArea Area(string name = "content")
         {
             if (!openAreas.ContainsKey(name))
-                return openAreas[name] = new SqlServerStorageArea(this, name, manager.Value);
+                return openAreas[name] = new SqlServerStorageArea(this, name, manager.Initialized());
             return openAreas[name];
         }
 

@@ -36,16 +36,14 @@ namespace DotJEM.Json.Storage.Migration.Collections
             }
         }
 
-        public IEnumerable<IDataMigrator> Path(string version)
+        public IEnumerable<IDataMigrator> MigrationPath(string version)
         {
             //TODO: We make a temp DataMigratorEntry just for searching here, but that could probably be optimized.
-            //TODO: Depends on if we are talking target or sorce version.
-            int c = entries.BinarySearch(new DataMigratorEntry("", version, null), comparer);
-            if (c >= 0)
-            {
-                return entries.Skip(c).Select(e => e.Migrator).ToList();
-            }
-            return entries.Skip(~c).Select(e => e.Migrator).ToList();
+            var searchEntry = new DataMigratorEntry("", version, null);
+            int c = entries.BinarySearch(searchEntry, comparer);
+            IEnumerable<DataMigratorEntry> foundEntries = entries.Skip(c >= 0 ? c : ~c).SkipWhile(e => comparer.Compare(e, searchEntry) == 0);
+            return foundEntries.Select(e => e.Migrator).ToList();
+
         }
     }
 }

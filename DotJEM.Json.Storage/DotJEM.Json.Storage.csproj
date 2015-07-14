@@ -57,11 +57,12 @@
     <Compile Include="Linq\QueryableStorage.cs" />
     <Compile Include="Linq\QueryTranslator.cs" />
     <Compile Include="Migration\Collections\DataMigratorCollection.cs" />
-    <Compile Include="Migration\Collections\DataMigratorCollectionExtensions.cs" />
     <Compile Include="Migration\Collections\DataMigratorComparer.cs" />
     <Compile Include="Migration\Collections\DataMigratorEntry.cs" />
+    <Compile Include="Migration\Collections\IDataMigratorInternalCollection.cs" />
     <Compile Include="Migration\Collections\ISortedPartitionLookup.cs" />
     <Compile Include="Migration\Collections\MappedDataMigratorCollection.cs" />
+    <Compile Include="Migration\Collections\NullPartitionLookup.cs" />
     <Compile Include="Migration\Collections\SortedPartitionLookup.cs" />
     <Compile Include="Migration\IDataMigrator.cs" />
     <Compile Include="Migration\Collections\IDataMigratorCollection.cs" />

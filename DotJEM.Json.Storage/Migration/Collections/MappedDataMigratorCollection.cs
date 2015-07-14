@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace DotJEM.Json.Storage.Migration.Collections
 {
-    public class MappedDataMigratorCollection : IDataMigratorCollection
+    public class MappedDataMigratorCollection : IDataMigratorInternalCollection
     {
         private readonly IComparer<DataMigratorEntry> comparer;
         private readonly Dictionary<string, ISortedPartitionLookup> map = new Dictionary<string, ISortedPartitionLookup>();
@@ -30,12 +30,21 @@ namespace DotJEM.Json.Storage.Migration.Collections
             return this;
         }
 
-        public IEnumerable<IDataMigrator> MigrationPath(string contentType, string version)
+        public MappedDataMigratorCollection AsMapped(IComparer<DataMigratorEntry> comparer)
         {
-            ISortedPartitionLookup sortedPartition;
-            return !map.TryGetValue(contentType, out sortedPartition)
-                ? Enumerable.Empty<IDataMigrator>()
-                : sortedPartition.Path(version);
+            return this;
         }
+
+        public ISortedPartitionLookup this[string contentType]
+        {
+            get
+            {
+                ISortedPartitionLookup sortedPartition;
+                return !map.TryGetValue(contentType, out sortedPartition)
+                    ? new NullPartitionLookup()
+                    : sortedPartition;
+            }
+        }
+
     }
 }
