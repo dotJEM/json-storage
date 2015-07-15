@@ -32,7 +32,7 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly StorageMigrationManager migration;
         private readonly SqlServerStorageAreaHistory history;
         private readonly SqlServerStorageAreaLog log;
-        
+
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
@@ -70,6 +70,7 @@ namespace DotJEM.Json.Storage.Adapter
 
             log = new SqlServerStorageAreaLog(this, context);
 
+            // ReSharper disable once AssignmentInConditionalExpression
             if (HistoryEnabled = context.Configuration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
@@ -102,7 +103,7 @@ namespace DotJEM.Json.Storage.Adapter
         {
             EnsureTable();
 
-            JObject jsonWithMetadata = (JObject) json.DeepClone();
+            JObject jsonWithMetadata = (JObject)json.DeepClone();
             jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] =
                 context.Configuration.VersionProvider.Current;
 
@@ -118,9 +119,12 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
 
-                    var insert = RunDataReader(command.ExecuteReader()).Single();
-                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
-                    return insert;
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        var insert = RunDataReader(reader).Single();
+                        log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert,ChangeType.Create);
+                        return insert;
+                    }
                 }
             }
         }
@@ -138,7 +142,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
         {
-            using (SqlCommand command = new SqlCommand {Connection = connection})
+            using (SqlCommand command = new SqlCommand { Connection = connection })
             {
                 DateTime updateTime = DateTime.Now;
                 command.CommandText = Commands["Update"];
@@ -146,19 +150,21 @@ namespace DotJEM.Json.Storage.Adapter
                 command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
                 command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
-                SqlDataReader reader = command.ExecuteReader();
-                if (!reader.HasRows)
-                    throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    if (!reader.HasRows)
+                        throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
 
-                reader.Read();
+                    reader.Read();
 
-                var deleted = ReadPrefixedRow("DELETED", reader);
-                if (history != null)
-                    history.Create(deleted, false);
+                    var deleted = ReadPrefixedRow("DELETED", reader);
+                    if (history != null)
+                        history.Create(deleted, false);
 
-                var update = ReadPrefixedRow("INSERTED", reader);
-                log.Insert(id, deleted, update, ChangeType.Update);
-                return update;
+                    var update = ReadPrefixedRow("INSERTED", reader);
+                    log.Insert(id, deleted, update, ChangeType.Update);
+                    return update;
+                }
             }
         }
 
@@ -173,14 +179,18 @@ namespace DotJEM.Json.Storage.Adapter
                 {
                     command.CommandText = Commands["Delete"];
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
-                    JObject deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
-                    if (deleted == null)
-                        return null;
 
-                    if (history != null) history.Create(deleted, true);
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        JObject deleted = RunDataReader(reader).SingleOrDefault();
+                        if (deleted == null)
+                            return null;
 
-                    log.Insert(guid, deleted, null, ChangeType.Delete);
-                    return deleted;
+                        if (history != null) history.Create(deleted, true);
+
+                        log.Insert(guid, deleted, null, ChangeType.Delete);
+                        return deleted;
+                    }
                 }
             }
         }
@@ -231,7 +241,7 @@ namespace DotJEM.Json.Storage.Adapter
                 var copy = entity;
                 if (migration.Migrate(ref copy))
                 {
-                    copy = InternalUpdate((Guid) entity[idField], copy, connection);
+                    copy = InternalUpdate((Guid)entity[idField], copy, connection);
                 }
                 migrated.Add(copy);
             }
@@ -333,7 +343,7 @@ namespace DotJEM.Json.Storage.Adapter
 
     public static class Base36
     {
-        private static readonly char[] digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+        private static readonly char[] Digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
         /// <summary>
         ///     Encode the given number into a Base36 string
@@ -347,7 +357,7 @@ namespace DotJEM.Json.Storage.Adapter
             var result = new Stack<char>();
             while (input != 0)
             {
-                result.Push(digits[input % 36]);
+                result.Push(Digits[input % 36]);
                 input /= 36;
             }
             return new string(result.ToArray());
@@ -365,7 +375,7 @@ namespace DotJEM.Json.Storage.Adapter
             int pos = 0;
             foreach (char c in reversed)
             {
-                result += Array.IndexOf(digits, c) * (long)Math.Pow(36, pos);
+                result += Array.IndexOf(Digits, c) * (long)Math.Pow(36, pos);
                 pos++;
             }
             return result;

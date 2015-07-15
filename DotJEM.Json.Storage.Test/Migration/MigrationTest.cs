@@ -311,7 +311,91 @@ namespace DotJEM.Json.Storage.Test.Migration
             Assert.That(jObject.Property(SchemaVersionProperty) != null, Is.True);
             Assert.That(jObject.Property(SchemaVersionProperty).Value.ToString(), Is.EqualTo(DefaultVersion));
         }
-        
+
+        [Test]
+        public void TwoMigratorsAreDefined_MultipleObjectsExist_AllObjectsAreUpdated()
+        {
+            // Arrange
+            IStorageContext context = new SqlServerStorageContext(ConnectionString);
+            context.Configure.VersionProvider = oldVersionProvider;
+            IStorageArea area = context.Area(EntityTableName);
+
+            // Entity 1 (version 2)
+            JObject newEntity = JObject.Parse("{ name: 'Potatoes', count: 10 }");
+            JObject inserted = area.Insert("content", newEntity);
+            var potatoesId = inserted[IdProperty];
+            Assert.That(inserted.Property(SchemaVersionProperty) != null, Is.True);
+            Assert.That(inserted.Property(SchemaVersionProperty).Value.ToString(), Is.EqualTo(OldVersion));
+
+            // Entity 2 (version 2)
+            newEntity = JObject.Parse("{ name: 'Tomatoes', count: 5 }");
+            inserted = area.Insert("content", newEntity);
+            var tomatoesId = inserted[IdProperty];
+            Assert.That(inserted.Property(SchemaVersionProperty) != null, Is.True);
+            Assert.That(inserted.Property(SchemaVersionProperty).Value.ToString(), Is.EqualTo(OldVersion));
+            context.Release(EntityTableName);
+
+            context = new SqlServerStorageContext(ConnectionString);
+            context.Configure.VersionProvider = new TestVersionProvider() { Current = "3" };
+            area = context.Area(EntityTableName);
+
+            // Entity 3 (version 3)
+            newEntity = JObject.Parse("{ name: 'Jalapeños', size: 20 }");
+            inserted = area.Insert("content", newEntity);
+            var jalapenosId = inserted[IdProperty];
+            Assert.That(inserted.Property(SchemaVersionProperty) != null, Is.True);
+            Assert.That(inserted.Property(SchemaVersionProperty).Value.ToString(), Is.EqualTo("3"));
+            context.Release(EntityTableName);
+
+            context = new SqlServerStorageContext(ConnectionString);
+            context.Configure.VersionProvider = currentVersionProvider;
+            context.Migrators.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
+            context.Migrators.Add(new RenameAttributeForVersion3Migrator("count", "size"));
+            area = context.Area(EntityTableName);
+
+            // Act
+            IEnumerable<JObject> result = area.Get("content");
+
+            // Assert
+            Assert.That(result.Count(), Is.EqualTo(3));
+            foreach (var entity in result)
+            {
+                var entityId = entity[IdProperty];
+                if (entityId.Equals(potatoesId))
+                {
+                    Assert.That(entity.Property("name") != null, Is.True);
+                    Assert.That(entity.Property("name").Value.ToString(), Is.EqualTo("Potatoes"));
+                    Assert.That(entity.Property("count") != null, Is.False);
+                    Assert.That(entity.Property("size") != null, Is.True);
+                    Assert.That(entity.Property("size").Value.ToString(), Is.EqualTo("10"));
+
+                }
+                else if (entityId.Equals(tomatoesId))
+                {
+                    Assert.That(entity.Property("name") != null, Is.True);
+                    Assert.That(entity.Property("name").Value.ToString(), Is.EqualTo("Tomatoes"));
+                    Assert.That(entity.Property("count") != null, Is.False);
+                    Assert.That(entity.Property("size") != null, Is.True);
+                    Assert.That(entity.Property("size").Value.ToString(), Is.EqualTo("5"));
+                }
+                else if (entityId.Equals(jalapenosId))
+                {
+                    Assert.That(entity.Property("name") != null, Is.True);
+                    Assert.That(entity.Property("name").Value.ToString(), Is.EqualTo("Jalapeños"));
+                    Assert.That(entity.Property("size") != null, Is.True);
+                    Assert.That(entity.Property("size").Value.ToString(), Is.EqualTo("20"));
+                }
+                else
+                {
+                    Assert.Fail("Unknown entity: " + entity);
+                }
+                Assert.That(entity.Property("newAttribute") != null, Is.True);
+                Assert.That(entity.Property("newAttribute").Value.ToString(), Is.EqualTo("attributeValue"));
+                Assert.That(entity.Property(SchemaVersionProperty) != null, Is.True);
+                Assert.That(entity.Property(SchemaVersionProperty).Value.ToString(), Is.EqualTo(DefaultVersion));
+            }
+        }
+
         
 
         [DataMigratorAttribute("content", "4")]
