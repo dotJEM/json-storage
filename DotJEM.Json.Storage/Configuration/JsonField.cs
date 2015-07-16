@@ -8,6 +8,7 @@ namespace DotJEM.Json.Storage.Configuration
         ContentType,
         Created,
         Updated,
-        Area
+        Area,
+        SchemaVersion
     }
 }

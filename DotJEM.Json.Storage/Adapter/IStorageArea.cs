@@ -3,27 +3,23 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Threading;
 using DotJEM.Json.Storage.Configuration;
+using DotJEM.Json.Storage.Migration;
 using DotJEM.Json.Storage.Queries;
 using DotJEM.Json.Storage.Validation;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter
 {
-
     public interface IStorageArea
     {
         string Name { get; }
         bool HistoryEnabled { get; }
-
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
-
         IEnumerable<JObject> Get();
         IEnumerable<JObject> Get(string contentType);
         JObject Get(Guid guid);
-
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
         JObject Delete(Guid guid);
@@ -33,8 +29,10 @@ namespace DotJEM.Json.Storage.Adapter
     {
         private bool initialized;
         private readonly SqlServerStorageContext context;
+        private readonly StorageMigrationManager migration;
         private readonly SqlServerStorageAreaHistory history;
         private readonly SqlServerStorageAreaLog log;
+
         private readonly object padlock = new object();
 
         public string Name { get; private set; }
@@ -58,12 +56,13 @@ namespace DotJEM.Json.Storage.Adapter
 
         internal ICommandFactory Commands { get; private set; }
 
-        public SqlServerStorageArea(SqlServerStorageContext context, string name)
+        public SqlServerStorageArea(SqlServerStorageContext context, string name, StorageMigrationManager migration)
         {
             Name = name;
             Validator.ValidateArea(name);
 
             this.context = context;
+            this.migration = migration;
             using (var conn = context.Connection())
             {
                 Commands = new SqlServerCommandFactory(conn.Database, name);
@@ -71,6 +70,7 @@ namespace DotJEM.Json.Storage.Adapter
 
             log = new SqlServerStorageAreaLog(this, context);
 
+            // ReSharper disable once AssignmentInConditionalExpression
             if (HistoryEnabled = context.Configuration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
@@ -103,6 +103,10 @@ namespace DotJEM.Json.Storage.Adapter
         {
             EnsureTable();
 
+            JObject jsonWithMetadata = (JObject)json.DeepClone();
+            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] =
+                context.Configuration.VersionProvider.Current;
+
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
@@ -113,11 +117,14 @@ namespace DotJEM.Json.Storage.Adapter
                     command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
                     command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
 
-                    var insert = RunDataReader(command.ExecuteReader()).Single();
-                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
-                    return insert;
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        var insert = RunDataReader(reader).Single();
+                        log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert,ChangeType.Create);
+                        return insert;
+                    }
                 }
             }
         }
@@ -129,22 +136,29 @@ namespace DotJEM.Json.Storage.Adapter
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    DateTime updateTime = DateTime.Now;
-                    command.CommandText = Commands["Update"];
-                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
-                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
+                return InternalUpdate(id, json, connection);
+            }
+        }
 
-                    SqlDataReader reader = command.ExecuteReader();
+        private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
+        {
+            using (SqlCommand command = new SqlCommand { Connection = connection })
+            {
+                DateTime updateTime = DateTime.Now;
+                command.CommandText = Commands["Update"];
+                command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
+
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
                     if (!reader.HasRows)
                         throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
 
                     reader.Read();
 
                     var deleted = ReadPrefixedRow("DELETED", reader);
-                    if(history != null)
+                    if (history != null)
                         history.Create(deleted, false);
 
                     var update = ReadPrefixedRow("INSERTED", reader);
@@ -165,14 +179,18 @@ namespace DotJEM.Json.Storage.Adapter
                 {
                     command.CommandText = Commands["Delete"];
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
-                    JObject deleted = RunDataReader(command.ExecuteReader()).SingleOrDefault();
-                    if (deleted == null)
-                        return null;
 
-                    if (history != null) history.Create(deleted, true);
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        JObject deleted = RunDataReader(reader).SingleOrDefault();
+                        if (deleted == null)
+                            return null;
 
-                    log.Insert(guid, deleted, null, ChangeType.Delete);
-                    return deleted;
+                        if (history != null) history.Create(deleted, true);
+
+                        log.Insert(guid, deleted, null, ChangeType.Delete);
+                        return deleted;
+                    }
                 }
             }
         }
@@ -184,17 +202,50 @@ namespace DotJEM.Json.Storage.Adapter
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
-                {
-                    command.Parameters.AddRange(parameters);
 
-                    //TODO: Dynamically read columns.
-                    foreach (JObject json in RunDataReader(command.ExecuteReader()))
-                        yield return json;
+                var entities = GetEntities(cmd, parameters, connection);
 
-                    command.Parameters.Clear();
-                }
+                // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
+                entities = MigrateEntities(entities, connection);
+
+                return entities;
             }
+        }
+
+        private List<JObject> GetEntities(string cmd, SqlParameter[] parameters, SqlConnection connection)
+        {
+            List<JObject> entities = new List<JObject>();
+            using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
+            {
+                command.Parameters.AddRange(parameters);
+
+                //TODO: Dynamically read columns.
+                using (SqlDataReader dataReader = command.ExecuteReader())
+                {
+                    foreach (JObject json in RunDataReader(dataReader))
+                    {
+                        entities.Add(json);
+                    }
+                }
+                command.Parameters.Clear();
+            }
+            return entities;
+        }
+
+        private List<JObject> MigrateEntities(IEnumerable<JObject> entities, SqlConnection connection)
+        {
+            List<JObject> migrated = new List<JObject>();
+            string idField = context.Configuration.Fields[JsonField.Id];
+            foreach (var entity in entities)
+            {
+                var copy = entity;
+                if (migration.Migrate(ref copy))
+                {
+                    copy = InternalUpdate((Guid)entity[idField], copy, connection);
+                }
+                migrated.Add(copy);
+            }
+            return migrated;
         }
 
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)
@@ -224,8 +275,6 @@ namespace DotJEM.Json.Storage.Adapter
             json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
             return json;
         }
-
-
 
         private JObject ReadPrefixedRow(string prefix, SqlDataReader reader)
         {
@@ -294,10 +343,10 @@ namespace DotJEM.Json.Storage.Adapter
 
     public static class Base36
     {
-        private static readonly char[] digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+        private static readonly char[] Digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
         /// <summary>
-        /// Encode the given number into a Base36 string
+        ///     Encode the given number into a Base36 string
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
@@ -308,14 +357,14 @@ namespace DotJEM.Json.Storage.Adapter
             var result = new Stack<char>();
             while (input != 0)
             {
-                result.Push(digits[input % 36]);
+                result.Push(Digits[input % 36]);
                 input /= 36;
             }
             return new string(result.ToArray());
         }
 
         /// <summary>
-        /// Decode the Base36 Encoded string into a number
+        ///     Decode the Base36 Encoded string into a number
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
@@ -326,7 +375,7 @@ namespace DotJEM.Json.Storage.Adapter
             int pos = 0;
             foreach (char c in reversed)
             {
-                result += Array.IndexOf(digits, c) * (long)Math.Pow(36, pos);
+                result += Array.IndexOf(Digits, c) * (long)Math.Pow(36, pos);
                 pos++;
             }
             return result;

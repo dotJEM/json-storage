@@ -34,7 +34,7 @@
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\packages\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -56,6 +56,19 @@
     <Compile Include="Adapter\IStorageArea.cs" />
     <Compile Include="Linq\QueryableStorage.cs" />
     <Compile Include="Linq\QueryTranslator.cs" />
+    <Compile Include="Migration\Collections\DataMigratorCollection.cs" />
+    <Compile Include="Migration\Collections\DataMigratorComparer.cs" />
+    <Compile Include="Migration\Collections\DataMigratorEntry.cs" />
+    <Compile Include="Migration\Collections\IDataMigratorInternalCollection.cs" />
+    <Compile Include="Migration\Collections\ISortedPartitionLookup.cs" />
+    <Compile Include="Migration\Collections\MappedDataMigratorCollection.cs" />
+    <Compile Include="Migration\Collections\NullPartitionLookup.cs" />
+    <Compile Include="Migration\Collections\SortedPartitionLookup.cs" />
+    <Compile Include="Migration\IDataMigrator.cs" />
+    <Compile Include="Migration\Collections\IDataMigratorCollection.cs" />
+    <Compile Include="Migration\IVersionProvider.cs" />
+    <Compile Include="Migration\NullVersionProvider.cs" />
+    <Compile Include="Migration\StorageMigrationManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Queries\Builders\TableBuilder.cs" />
     <Compile Include="Util\AdvPropertyBag.cs" />
