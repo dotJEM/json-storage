@@ -180,6 +180,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.CommandText = Commands["Delete"];
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
 
+                    //TODO: Transactions (DAMMIT! hoped we could avoid that)
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
                         JObject deleted = RunDataReader(reader).SingleOrDefault();
