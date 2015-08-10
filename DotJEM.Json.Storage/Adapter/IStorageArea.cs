@@ -187,9 +187,10 @@ namespace DotJEM.Json.Storage.Adapter
                         if (deleted == null)
                             return null;
 
-                        if (history != null) history.Create(deleted, true);
-
                         log.Insert(guid, deleted, null, ChangeType.Delete);
+
+                        if (history != null) 
+                            history.Create(deleted, true);
                         return deleted;
                     }
                 }
@@ -223,10 +224,7 @@ namespace DotJEM.Json.Storage.Adapter
                 //TODO: Dynamically read columns.
                 using (SqlDataReader dataReader = command.ExecuteReader())
                 {
-                    foreach (JObject json in RunDataReader(dataReader))
-                    {
-                        entities.Add(json);
-                    }
+                    entities.AddRange(RunDataReader(dataReader));
                 }
                 command.Parameters.Clear();
             }
@@ -266,7 +264,18 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
         {
-            JObject json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
+            JObject json;
+            try
+            {
+                json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
+            }
+            catch (Exception ex)
+            {
+                json = new JObject();
+                json["$exception"] = ex.ToString();
+            }
+
+
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
             json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = Name;
