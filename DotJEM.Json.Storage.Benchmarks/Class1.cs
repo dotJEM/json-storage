@@ -17,7 +17,7 @@ namespace DotJEM.Json.Storage.Benchmarks
     {
         private readonly IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
 
-        [Test]
+        [Test, Explicit]
         public void Insert_Benchmark()
         {
             IStorageArea area = context.Area("simple");
@@ -43,7 +43,7 @@ namespace DotJEM.Json.Storage.Benchmarks
             Assert.That(counts.Average(), Is.GreaterThan(1000));
         }
 
-        [Test]
+        [Test, Explicit]
         public void Get_Benchmarks()
         {
             IStorageArea area = context.Area("simple");
