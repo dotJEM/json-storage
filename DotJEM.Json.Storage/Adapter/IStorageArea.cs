@@ -104,8 +104,7 @@ namespace DotJEM.Json.Storage.Adapter
             EnsureTable();
 
             JObject jsonWithMetadata = (JObject)json.DeepClone();
-            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] =
-                context.Configuration.VersionProvider.Current;
+            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
 
             using (SqlConnection connection = context.Connection())
             {
@@ -122,7 +121,7 @@ namespace DotJEM.Json.Storage.Adapter
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
                         var insert = RunDataReader(reader).Single();
-                        log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert,ChangeType.Create);
+                        log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
                         return insert;
                     }
                 }
@@ -142,12 +141,15 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
         {
+            JObject jsonWithMetadata = (JObject)json.DeepClone();
+            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
+
             using (SqlCommand command = new SqlCommand { Connection = connection })
             {
                 DateTime updateTime = DateTime.Now;
                 command.CommandText = Commands["Update"];
                 command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
-                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
                 command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
                 using (SqlDataReader reader = command.ExecuteReader())
@@ -189,7 +191,7 @@ namespace DotJEM.Json.Storage.Adapter
 
                         log.Insert(guid, deleted, null, ChangeType.Delete);
 
-                        if (history != null) 
+                        if (history != null)
                             history.Create(deleted, true);
                         return deleted;
                     }
@@ -234,17 +236,29 @@ namespace DotJEM.Json.Storage.Adapter
         private List<JObject> MigrateEntities(IEnumerable<JObject> entities, SqlConnection connection)
         {
             List<JObject> migrated = new List<JObject>();
-            string idField = context.Configuration.Fields[JsonField.Id];
             foreach (var entity in entities)
             {
-                var copy = entity;
-                if (migration.Migrate(ref copy))
-                {
-                    copy = InternalUpdate((Guid)entity[idField], copy, connection);
-                }
-                migrated.Add(copy);
+                var migratedEntity = MigrateAndUpdate(entity, connection);
+                migrated.Add(migratedEntity);
             }
             return migrated;
+        }
+
+        private JObject MigrateAndUpdate(JObject entity, SqlConnection connection)
+        {
+            var migrated = entity;
+            if (migration.Migrate(ref migrated) && connection != null)
+            {
+                string idField = context.Configuration.Fields[JsonField.Id];
+                migrated = InternalUpdate((Guid) entity[idField], migrated, connection);
+            }
+            migrated[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
+            return migrated;
+        }
+
+        internal JObject Migrate(JObject entity)
+        {
+            return MigrateAndUpdate(entity, null);
         }
 
         private IEnumerable<JObject> RunDataReader(SqlDataReader reader)

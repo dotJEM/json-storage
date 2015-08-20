@@ -209,6 +209,9 @@ namespace DotJEM.Json.Storage.Adapter
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
             json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
             json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
+
+            json = area.Migrate(json);
+
             return json;
         }
 
@@ -241,9 +244,12 @@ namespace DotJEM.Json.Storage.Adapter
                     command.CommandText = area.Commands["SelectChangedObjectsDestinct"];
                     command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
 
-                    StorageChanges changes = RunDataReader(token, command.ExecuteReader());
-                    previousToken = changes.Token;
-                    return changes;
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        StorageChanges changes = RunDataReader(token, reader);
+                        previousToken = changes.Token;
+                        return changes;
+                    }
                 }
             }
         }
