@@ -225,7 +225,7 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
 
             self.SelectChangedObjectsDestinct = vars.Format(@"
-                SELECT {tableFullName}.*, 
+                SELECT TOP(5000) {tableFullName}.*, 
                        (SELECT TOP 1 [Action] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Action], 
                        (SELECT TOP 1 [Data] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Payload],
                        cl.Token,
@@ -235,7 +235,8 @@ namespace DotJEM.Json.Storage.Queries
                     SELECT 
                         MAX([{id}]) as Token, [{fid}] 
                     FROM {logTableFullName} WHERE [{id}] > @token
-                    GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}];
+                    GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}]
+                  ORDER BY [Token];
              ");
 
             //SELECT Log.Token, 
