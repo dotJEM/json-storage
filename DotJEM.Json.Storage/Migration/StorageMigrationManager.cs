@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration.Collections;
@@ -26,14 +27,14 @@ namespace DotJEM.Json.Storage.Migration
 
         public bool Migrate(ref JObject json)
         {
-            var contentType = (string)json[configuration.Fields[JsonField.ContentType]];
-            var version = (string)json[configuration.Fields[JsonField.SchemaVersion]];
+            string contentType = (string)json[configuration.Fields[JsonField.ContentType]];
+            string version = (string)json[configuration.Fields[JsonField.SchemaVersion]];
 
             IVersionProvider versionProvider = configuration.VersionProvider;
             if (versionProvider.Compare(version, versionProvider.Current) == 0)
                 return false;
 
-            var path = Migrators[contentType].MigrationPath(version);
+            IEnumerable<IDataMigrator> path = Migrators[contentType].MigrationPath(version);
             json = path.Aggregate(json, (o, migrator) => migrator.Migrate(o));
             json[configuration.Fields[JsonField.SchemaVersion]] = versionProvider.Current;
 
