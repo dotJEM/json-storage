@@ -106,13 +106,16 @@ namespace DotJEM.Json.Storage.Adapter
     {
         public long Token { get; private set; }
         public ChangeType Type { get; private set; }
-        public JObject Entity { get; private set; }
+        public JObject Entity { get { return entity.Value; } }
 
-        public StorageChange(long token, ChangeType type, JObject entity)
+        private readonly Lazy<JObject> entity; 
+
+        public StorageChange(long token, ChangeType type, Lazy<JObject> entity)
         {
             Token = token;
             Type = type;
-            Entity = entity;
+
+            this.entity = entity;
         }
     }
 
@@ -153,7 +156,7 @@ namespace DotJEM.Json.Storage.Adapter
                     reader.Read();
                     long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
 
-                    return new StorageChanges(token, new List<IStorageChange> { new StorageChange(token, action, changed) });
+                    return new StorageChanges(token, new List<IStorageChange> { new StorageChange(token, action, new Lazy<JObject>(() => changed)) });
                 }
             }
         }
@@ -191,28 +194,42 @@ namespace DotJEM.Json.Storage.Adapter
             return new StorageChanges(maxToken, changes);
         }
 
-        private JObject CreateShell(SqlDataReader reader, int fidColumn)
+        private Lazy<JObject> CreateShell(SqlDataReader reader, int fidColumn)
         {
-            JObject json = new JObject();
-            json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(fidColumn);
-            json[context.Configuration.Fields[JsonField.ContentType]] = "Dummy";
-            return json;
+            Guid id = reader.GetGuid(fidColumn);
+            return new Lazy<JObject>(() =>
+            {
+                JObject json = new JObject();
+                json[context.Configuration.Fields[JsonField.Id]] = id;
+                json[context.Configuration.Fields[JsonField.ContentType]] = "Dummy";
+                return json;
+            });
         }
 
-        private JObject CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
+        private Lazy<JObject> CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
         {
-            JObject json = context.Serializer.Deserialize(reader.GetSqlBinary(dataColumn).Value);
-            json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
-            json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
-            json[context.Configuration.Fields[JsonField.Area]] = area.Name;
-            json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
-            json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
-            json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
-            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
+            byte[] data = reader.GetSqlBinary(dataColumn).Value;
+            Guid id = reader.GetGuid(idColumn);
+            long reference = reader.GetInt64(refColumn);
+            string name = area.Name;
+            int version = reader.GetInt32(versionColumn);
+            string contentType = reader.GetString(contentTypeColumn);
+            DateTime created = reader.GetDateTime(createdColumn);
+            DateTime updated = reader.GetDateTime(updatedColumn);
 
-            json = area.Migrate(json);
-
-            return json;
+            return new Lazy<JObject>(() =>
+            {
+                JObject json = context.Serializer.Deserialize(data);
+                json[context.Configuration.Fields[JsonField.Id]] = id;
+                json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reference);
+                json[context.Configuration.Fields[JsonField.Area]] = name;
+                json[context.Configuration.Fields[JsonField.Version]] = version;
+                json[context.Configuration.Fields[JsonField.ContentType]] = contentType;
+                json[context.Configuration.Fields[JsonField.Created]] = created;
+                json[context.Configuration.Fields[JsonField.Updated]] = updated;
+                json = area.Migrate(json);
+                return json;
+            });
         }
 
         private JObject Diff(JObject original, JObject changed)

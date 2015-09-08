@@ -239,6 +239,16 @@ namespace DotJEM.Json.Storage.Queries
                   ORDER BY [Token];
              ");
 
+                  //          SELECT MAX(clog.Token) FROM (SELECT TOP(5000) 
+                  //     cl.Token
+                  //FROM [SSN3DB].[dbo].[content]
+                  //RIGHT JOIN (
+                  //  SELECT 
+                  //      MAX([Id]) as Token, [Fid] 
+                  //  FROM [SSN3DB].[dbo].[content.changelog] WHERE [Id] > 0
+                  //  GROUP BY [Fid]) cl ON cl.[Fid] = [SSN3DB].[dbo].[content].[Id]
+                  //ORDER BY [Token]) as clog;
+
             //SELECT Log.Token, 
             //  (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = Log.Token) as [Action],
             //  Content.*
