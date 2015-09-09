@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyProduct("DotJEM.Json.Storage.Test")]
 [assembly: AssemblyCompany("N/A")]
-[assembly: AssemblyCopyright("Copyright © DotJEM A/S 2014-2015")]
+[assembly: AssemblyCopyright("Copyright © DotJEM 2014-2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace DotJEM.Json.Storage.Migration.Collections
 {
@@ -20,6 +19,8 @@ namespace DotJEM.Json.Storage.Migration.Collections
             DataMigratorAttribute meta = DataMigratorAttribute.GetAttribute(instance.GetType());
             if (meta == null)
                 throw new InvalidOperationException("IDataMigrator implementation must define a DataMigratorAttribute.");
+
+
 
             ISortedPartitionLookup sortedPartition;
             if (!map.TryGetValue(meta.ContentType, out sortedPartition))

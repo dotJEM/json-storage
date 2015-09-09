@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <authors>jeme</authors>
+    <owners>jeme</owners>
+    <licenseUrl>https://github.com/dotJEM/json-storage/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/dotJEM/json-storage</projectUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <description>Small and simple storage for JSON objects in SQL Server.</description>
+    <releaseNotes>https://github.com/dotJEM/json-storage/releases</releaseNotes>
+    <copyright>Copyright 2015</copyright>
+    <tags></tags>
+  </metadata>
+</package>

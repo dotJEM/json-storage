@@ -41,8 +41,13 @@ namespace DotJEM.Json.Storage.Migration.Collections
             //TODO: We make a temp DataMigratorEntry just for searching here, but that could probably be optimized.
             var searchEntry = new DataMigratorEntry("", version, null);
             int c = entries.BinarySearch(searchEntry, comparer);
-            IEnumerable<DataMigratorEntry> foundEntries = entries.Skip(c >= 0 ? c : ~c).SkipWhile(e => comparer.Compare(e, searchEntry) == 0);
-            return foundEntries.Select(e => e.Migrator).ToList();
+            int skip = c >= 0 ? c : ~c;
+
+            return entries
+                .Skip(skip)
+                .SkipWhile(e => comparer.Compare(e, searchEntry) == 0)
+                .Select(e => e.Migrator)
+                .ToList();
 
         }
     }
