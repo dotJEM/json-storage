@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage", "DotJEM.Json.Storage\DotJEM.Json.Storage.csproj", "{672D1E1D-C559-4914-B233-807CC7CE3B52}"
 EndProject
@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage.Benchmarks", "DotJEM.Json.Storage.Benchmarks\DotJEM.Json.Storage.Benchmarks.csproj", "{04044D8B-607B-4F06-9D03-7F498357346D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ci", "ci\ci.csproj", "{1536FE3E-3518-41BB-A6BD-8D49218E68CD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,10 @@ Global
 		{04044D8B-607B-4F06-9D03-7F498357346D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{04044D8B-607B-4F06-9D03-7F498357346D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{04044D8B-607B-4F06-9D03-7F498357346D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
