@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="Adapter\IStorageAreaHistory.cs" />
     <Compile Include="Adapter\IStorageAreaLog.cs" />
+    <Compile Include="Adapter\Materialize\JsonEntity.cs" />
     <Compile Include="Configuration\IJObjectDecorator.cs" />
     <Compile Include="Configuration\IStorageAreaConfiguration.cs" />
     <Compile Include="Configuration\JsonField.cs" />
@@ -78,6 +79,9 @@
   <ItemGroup>
     <None Include="DotJEM.Json.Storage.nuspec" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Entity\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />

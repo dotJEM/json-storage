@@ -367,7 +367,7 @@ namespace DotJEM.Json.Storage.Adapter
 
     public static class Base36
     {
-        private static readonly char[] Digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+        private static readonly char[] digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
         /// <summary>
         ///     Encode the given number into a Base36 string
@@ -381,7 +381,7 @@ namespace DotJEM.Json.Storage.Adapter
             var result = new Stack<char>();
             while (input != 0)
             {
-                result.Push(Digits[input % 36]);
+                result.Push(digits[input % 36]);
                 input /= 36;
             }
             return new string(result.ToArray());
@@ -399,7 +399,7 @@ namespace DotJEM.Json.Storage.Adapter
             int pos = 0;
             foreach (char c in reversed)
             {
-                result += Array.IndexOf(Digits, c) * (long)Math.Pow(36, pos);
+                result += Array.IndexOf(digits, c) * (long)Math.Pow(36, pos);
                 pos++;
             }
             return result;
