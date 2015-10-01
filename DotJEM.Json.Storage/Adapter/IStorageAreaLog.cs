@@ -208,28 +208,38 @@ namespace DotJEM.Json.Storage.Adapter
 
         private Lazy<JObject> CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
         {
-            byte[] data = reader.GetSqlBinary(dataColumn).Value;
-            Guid id = reader.GetGuid(idColumn);
-            long reference = reader.GetInt64(refColumn);
-            string name = area.Name;
-            int version = reader.GetInt32(versionColumn);
-            string contentType = reader.GetString(contentTypeColumn);
-            DateTime created = reader.GetDateTime(createdColumn);
-            DateTime updated = reader.GetDateTime(updatedColumn);
-
-            return new Lazy<JObject>(() =>
+            try
             {
-                JObject json = context.Serializer.Deserialize(data);
-                json[context.Configuration.Fields[JsonField.Id]] = id;
-                json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reference);
-                json[context.Configuration.Fields[JsonField.Area]] = name;
-                json[context.Configuration.Fields[JsonField.Version]] = version;
-                json[context.Configuration.Fields[JsonField.ContentType]] = contentType;
-                json[context.Configuration.Fields[JsonField.Created]] = created;
-                json[context.Configuration.Fields[JsonField.Updated]] = updated;
-                json = area.Migrate(json);
-                return json;
-            });
+                byte[] data = reader.GetSqlBinary(dataColumn).Value;
+                Guid id = reader.GetGuid(idColumn);
+                long reference = reader.GetInt64(refColumn);
+                string name = area.Name;
+                int version = reader.GetInt32(versionColumn);
+                string contentType = reader.GetString(contentTypeColumn);
+                DateTime created = reader.GetDateTime(createdColumn);
+                DateTime updated = reader.GetDateTime(updatedColumn);
+
+                return new Lazy<JObject>(() =>
+                {
+                    JObject json = context.Serializer.Deserialize(data);
+                    json[context.Configuration.Fields[JsonField.Id]] = id;
+                    json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reference);
+                    json[context.Configuration.Fields[JsonField.Area]] = name;
+                    json[context.Configuration.Fields[JsonField.Version]] = version;
+                    json[context.Configuration.Fields[JsonField.ContentType]] = contentType;
+                    json[context.Configuration.Fields[JsonField.Created]] = created;
+                    json[context.Configuration.Fields[JsonField.Updated]] = updated;
+                    json = area.Migrate(json);
+                    return json;
+                });
+            }
+            catch (Exception ex)
+            {
+                //TODO: (jmd 2015-10-01) This is a horrible way around it, will get fixed when we have better materialization. 
+                var json = new JObject();
+                json["$exception"] = ex.ToString();
+                return new Lazy<JObject>(() => json);
+            }
         }
 
         private JObject Diff(JObject original, JObject changed)
