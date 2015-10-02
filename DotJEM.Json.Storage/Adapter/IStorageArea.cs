@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using DotJEM.Json.Index.Sharding;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
 using DotJEM.Json.Storage.Queries;
@@ -27,6 +28,8 @@ namespace DotJEM.Json.Storage.Adapter
 
     public class SqlServerStorageArea : IStorageArea
     {
+        private readonly IJsonIndex index;
+
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly StorageMigrationManager migration;
@@ -35,13 +38,10 @@ namespace DotJEM.Json.Storage.Adapter
 
         private readonly object padlock = new object();
 
-        public string Name { get; private set; }
-        public bool HistoryEnabled { get; private set; }
+        public string Name { get; }
+        public bool HistoryEnabled { get; }
 
-        public IStorageAreaLog Log
-        {
-            get { return log; }
-        }
+        public IStorageAreaLog Log => log;
 
         public IStorageAreaHistory History
         {
@@ -54,15 +54,16 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
-        internal ICommandFactory Commands { get; private set; }
+        internal ICommandFactory Commands { get; }
 
-        public SqlServerStorageArea(SqlServerStorageContext context, string name, StorageMigrationManager migration)
+        public SqlServerStorageArea(SqlServerStorageContext context, string name, StorageMigrationManager migration, IJsonIndex index)
         {
             Name = name;
             Validator.ValidateArea(name);
 
             this.context = context;
             this.migration = migration;
+            this.index = index;
             using (var conn = context.Connection())
             {
                 Commands = new SqlServerCommandFactory(conn.Database, name);
@@ -160,8 +161,7 @@ namespace DotJEM.Json.Storage.Adapter
                     reader.Read();
 
                     var deleted = ReadPrefixedRow("DELETED", reader);
-                    if (history != null)
-                        history.Create(deleted, false);
+                    history?.Create(deleted, false);
 
                     var update = ReadPrefixedRow("INSERTED", reader);
                     log.Insert(id, deleted, update, ChangeType.Update);
@@ -191,8 +191,7 @@ namespace DotJEM.Json.Storage.Adapter
 
                         log.Insert(guid, deleted, null, ChangeType.Delete);
 
-                        if (history != null)
-                            history.Create(deleted, true);
+                        history?.Create(deleted, true);
                         return deleted;
                     }
                 }
@@ -235,13 +234,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         private List<JObject> MigrateEntities(IEnumerable<JObject> entities, SqlConnection connection)
         {
-            List<JObject> migrated = new List<JObject>();
-            foreach (var entity in entities)
-            {
-                var migratedEntity = MigrateAndUpdate(entity, connection);
-                migrated.Add(migratedEntity);
-            }
-            return migrated;
+            return entities.Select(entity => MigrateAndUpdate(entity, connection)).ToList();
         }
 
         private JObject MigrateAndUpdate(JObject entity, SqlConnection connection)

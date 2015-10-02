@@ -83,6 +83,12 @@
   <ItemGroup>
     <Folder Include="Entity\" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\json-index\DotJEM.Json.Index\DotJEM.Json.Index.csproj">
+      <Project>{61EA751B-691B-4F68-87C5-46D115D51CC3}</Project>
+      <Name>DotJEM.Json.Index</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
