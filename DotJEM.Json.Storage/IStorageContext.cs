@@ -46,7 +46,7 @@ namespace DotJEM.Json.Storage
         public IStorageArea Area(string name = "content")
         {
             if (!openAreas.ContainsKey(name))
-                return openAreas[name] = new SqlServerStorageArea(this, name, manager.Initialized(), indexContext.Open(name));
+                return openAreas[name] = new SqlServerStorageArea(this, name, manager.Initialized(), index.Open(name));
             return openAreas[name];
         }
 
@@ -60,6 +60,6 @@ namespace DotJEM.Json.Storage
             return new SqlConnection(connectionString);
         }
 
-        private IJsonIndexContext indexContext;
+        private readonly IJsonIndexContext index = new LuceneJsonIndexContext();
     }
 }
