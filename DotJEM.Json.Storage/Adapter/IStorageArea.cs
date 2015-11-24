@@ -240,7 +240,7 @@ namespace DotJEM.Json.Storage.Adapter
         private JObject MigrateAndUpdate(JObject entity, SqlConnection connection)
         {
             var migrated = entity;
-            if (migration.Migrate(ref migrated) && connection != null)
+            if (migration.Upgrade(ref migrated) && connection != null)
             {
                 string idField = context.Configuration.Fields[JsonField.Id];
                 migrated = InternalUpdate((Guid) entity[idField], migrated, connection);

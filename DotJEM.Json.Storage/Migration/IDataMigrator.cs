@@ -6,7 +6,9 @@ namespace DotJEM.Json.Storage.Migration
 {
     public interface IDataMigrator
     {
-        JObject Migrate(JObject source);
+        JObject Up(JObject source);
+
+        JObject Down(JObject source);
     }
 
     [AttributeUsage(AttributeTargets.Class)]

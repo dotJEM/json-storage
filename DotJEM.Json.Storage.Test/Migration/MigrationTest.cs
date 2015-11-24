@@ -111,7 +111,7 @@ namespace DotJEM.Json.Storage.Test.Migration
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
+            context.MigrationManager.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -147,7 +147,7 @@ namespace DotJEM.Json.Storage.Test.Migration
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new RenameAttributeForVersion3Migrator("count", "size"));
+            context.MigrationManager.Add(new RenameAttributeForVersion3Migrator("count", "size"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -166,7 +166,7 @@ namespace DotJEM.Json.Storage.Test.Migration
         }
 
         [Test]
-        public void AMigratorIsDefined_ObjectHasNoSchemaVersion_ObjectIsUpdated()
+        public void AMigratorIsDefined_ObjectHasAnOldSchemaVersion_ObjectIsUpdated()
         {
             // Arrange
             IStorageContext context = new SqlServerStorageContext(ConnectionString);
@@ -175,15 +175,12 @@ namespace DotJEM.Json.Storage.Test.Migration
             IStorageArea area = context.Area(EntityTableName);
 
             JObject newEntity = JObject.Parse("{ name: 'Potatoes', count: 10 }");
-            JObject inserted = area.Insert("content", newEntity);
-            inserted.Remove(SchemaVersionProperty);
-            JObject updated = area.Update(new Guid(inserted[IdProperty].ToString()), inserted);
-            Assert.That(updated.Property(SchemaVersionProperty) != null, Is.False);
+            area.Insert("content", newEntity);
             context.Release(EntityTableName);
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
+            context.MigrationManager.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -219,8 +216,8 @@ namespace DotJEM.Json.Storage.Test.Migration
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
-            context.Migrators.Add(new RenameAttributeForVersion3Migrator("count", "size"));
+            context.MigrationManager.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
+            context.MigrationManager.Add(new RenameAttributeForVersion3Migrator("count", "size"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -257,8 +254,8 @@ namespace DotJEM.Json.Storage.Test.Migration
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
-            context.Migrators.Add(new RenameAttributeForVersion3Migrator("count", "size"));
+            context.MigrationManager.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
+            context.MigrationManager.Add(new RenameAttributeForVersion3Migrator("count", "size"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -294,7 +291,7 @@ namespace DotJEM.Json.Storage.Test.Migration
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new AddAttributeForVersion3OfUnknownTypeMigrator("newAttribute", "attributeValue"));
+            context.MigrationManager.Add(new AddAttributeForVersion3OfUnknownTypeMigrator("newAttribute", "attributeValue"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -349,8 +346,8 @@ namespace DotJEM.Json.Storage.Test.Migration
 
             context = new SqlServerStorageContext(ConnectionString);
             context.Configure.VersionProvider = currentVersionProvider;
-            context.Migrators.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
-            context.Migrators.Add(new RenameAttributeForVersion3Migrator("count", "size"));
+            context.MigrationManager.Add(new AddAttributeForVersion4Migrator("newAttribute", "attributeValue"));
+            context.MigrationManager.Add(new RenameAttributeForVersion3Migrator("count", "size"));
             area = context.Area(EntityTableName);
 
             // Act
@@ -410,11 +407,16 @@ namespace DotJEM.Json.Storage.Test.Migration
                 AttributeValue = attributeValue;
             }
 
-            public JObject Migrate(JObject source)
+            public JObject Up(JObject source)
             {
                 JObject migrated = (JObject)source.DeepClone();
                 migrated[AttributeName] = AttributeValue;
                 return migrated;
+            }
+
+            public JObject Down(JObject source)
+            {
+                throw new NotSupportedException();
             }
         }
 
@@ -430,12 +432,17 @@ namespace DotJEM.Json.Storage.Test.Migration
                 NewName = newName;
             }
 
-            public JObject Migrate(JObject source)
+            public JObject Up(JObject source)
             {
                 JObject migrated = (JObject)source.DeepClone();
                 migrated[NewName] = migrated[OldName];
                 migrated.Remove(OldName);
                 return migrated;
+            }
+
+            public JObject Down(JObject source)
+            {
+                throw new NotSupportedException();
             }
         }
 
@@ -451,11 +458,16 @@ namespace DotJEM.Json.Storage.Test.Migration
                 Value = value;
             }
 
-            public JObject Migrate(JObject source)
+            public JObject Up(JObject source)
             {
                 JObject migrated = (JObject)source.DeepClone();
                 migrated[Name] = Value;
                 return migrated;
+            }
+
+            public JObject Down(JObject source)
+            {
+                throw new NotSupportedException();
             }
         }
 

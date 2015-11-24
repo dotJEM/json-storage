@@ -84,7 +84,12 @@ namespace DotJEM.Json.Storage.Test.Migration.Collection
                 Name = name;
             }
 
-            public JObject Migrate(JObject source)
+            public JObject Up(JObject source)
+            {
+                return source;
+            }
+
+            public JObject Down(JObject source)
             {
                 return source;
             }

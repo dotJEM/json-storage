@@ -4,14 +4,13 @@ using DotJEM.Json.Index.Sharding;
 using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
-using DotJEM.Json.Storage.Migration.Collections;
 
 namespace DotJEM.Json.Storage
 {
     public interface IStorageContext
     {
         IStorageConfigurator Configure { get; }
-        IDataMigratorCollection Migrators { get; }
+        IStorageMigrationManager MigrationManager { get; }
 
         IStorageArea Area(string name = "content");
         bool Release(string name = "content");
@@ -24,12 +23,9 @@ namespace DotJEM.Json.Storage
         private readonly StorageMigrationManager manager;
 
         public IBsonSerializer Serializer { get; private set; }
-        public IStorageConfigurator Configure { get { return Configuration; } }
+        public IStorageConfigurator Configure => Configuration;
 
-        public IDataMigratorCollection Migrators
-        {
-            get { return manager.Migrators; }
-        }
+        public IStorageMigrationManager MigrationManager => manager;
 
         internal StorageConfiguration Configuration { get; private set; }
 
