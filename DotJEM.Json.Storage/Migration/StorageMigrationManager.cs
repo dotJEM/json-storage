@@ -12,7 +12,6 @@ namespace DotJEM.Json.Storage.Migration
         void Add(IDataMigrator migrator);
 
         bool Upgrade(ref JObject json);
-
         bool Downgrade(ref JObject json, string targetVersion);
     }
 
@@ -88,15 +87,10 @@ namespace DotJEM.Json.Storage.Migration
             string migratorVersion = meta.Version;
 
             IVersionProvider versionProvider = configuration.VersionProvider;
-            if (versionProvider.Compare(entityVersion, migratorVersion) >= 0)
-            {
-                return migrator.Down(entity);
-            }
-            else
-            {
-                // Do not apply downgrade as entity has not been upgraded to migrator target version (or newer)
-                return entity;
-            }
+            return versionProvider.Compare(entityVersion, migratorVersion) >= 0 
+                ? migrator.Down(entity) 
+                : entity;
+            // Do not apply downgrade as entity has not been upgraded to migrator target version (or newer)
         }
 
         private string GetContentType(JObject json)
