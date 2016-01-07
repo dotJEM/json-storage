@@ -18,24 +18,26 @@ $np = $wmi.GetSmoObject($uri)
 $np.IsEnabled = $true
 $np.Alter()
 
-# Restart SQL Server
-$sqlserver = $wmi.Services["MSSQL`$$instance"]
-$sqlserver
-$sqlserver.Stop();
-$sqlserver.Refresh(); 
-$sqlserver
-$sqlserver.Start();
-$sqlserver.Refresh(); 
-$sqlserver
-
 # Start services
-# Restart-Service "MSSQL`$$instance"
 Set-Service SQLBrowser -StartupType Manual
-# Start-Service SQLBrowser
+Start-Service SQLBrowser
 # Start-Service "MSSQL`$$instance"
+Restart-Service "MSSQL`$$instance"
 
-$sqlbrowser = $Wmi.Services["SQLBrowser"]
-$sqlbrowser
-$sqlbrowser.Start();
-$sqlbrowser.Refresh(); 
-$sqlbrowser
+# Restart SQL Server
+# $sqlserver = $wmi.Services["MSSQL`$$instance"]
+# $sqlserver
+# $sqlserver.Stop();
+# $sqlserver.Refresh(); 
+# $sqlserver
+# $sqlserver.Start();
+# $sqlserver.Refresh(); 
+# $sqlserver
+
+
+
+# $sqlbrowser = $Wmi.Services["SQLBrowser"]
+# $sqlbrowser
+# $sqlbrowser.Start();
+# $sqlbrowser.Refresh(); 
+# $sqlbrowser
