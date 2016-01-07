@@ -1,5 +1,5 @@
 ﻿$path = "$($env:appveyor_build_folder)"
-$instance = ".\SQL2014"
+$instance = ".\DEV"
 
 # create new empty json database for tests.
 $mdf = join-path $path "json.mdf"
