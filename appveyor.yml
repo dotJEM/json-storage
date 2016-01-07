@@ -38,6 +38,7 @@ build:
 
 before_test:
   - ps: .\ci\ps\sql-server-create-db.ps1
+  - ps: .\ci\ps\sql-server-enable-tcp.ps1
 
 test:
   assemblies:

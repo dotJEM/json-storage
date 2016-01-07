@@ -38,6 +38,7 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="ps\sql-server-create-db.ps1" />
+    <None Include="ps\sql-server-enable-tcp.ps1" />
     <None Include="scriptcs_bin\msbuild.csx" />
     <None Include="util.csx" />
     <None Include="build.csx" />
