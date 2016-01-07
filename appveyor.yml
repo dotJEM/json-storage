@@ -34,8 +34,8 @@ build:
   publish_nuget_symbols: true
 
 before_test:
-  - ps: .\ci\ps\sql-server-setup-create-db.ps1
-  - ps: .\ci\ps\sql-server-setup-dev-alias.ps1
+  - ps: ci\ps\sql-server-setup-create-db.ps1
+  - ps: ci\ps\sql-server-setup-dev-alias.ps1
 
 test:
   assemblies:
