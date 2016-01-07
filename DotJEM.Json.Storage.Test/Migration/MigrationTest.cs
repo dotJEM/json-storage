@@ -12,7 +12,7 @@ namespace DotJEM.Json.Storage.Test.Migration
     [TestFixture]
     class MigrationTest
     {
-        private static readonly string ConnectionString = "Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True";
+        private static readonly string ConnectionString = TestContext.ConnectionString;
         private static readonly string EntityTableName = "myEntities";
         private static readonly string SchemaVersionProperty = "$schemaVersion";
         private static readonly string IdProperty = "$id";
@@ -35,8 +35,14 @@ namespace DotJEM.Json.Storage.Test.Migration
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = "DELETE FROM " + EntityTableName + " ;";
-                    command.ExecuteNonQuery();
+                    try
+                    {
+                        command.CommandText = "DELETE FROM " + EntityTableName + " ;";
+                        command.ExecuteNonQuery();
+                    }
+                    catch (Exception)
+                    {
+                    }
                 }
             }
 
