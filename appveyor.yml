@@ -8,6 +8,9 @@ init:
 nuget:
   disable_publish_on_pr: true
 
+services:
+  - mssql2014
+
 assembly_info:
   patch: true
   file: AssemblyInfo.*
