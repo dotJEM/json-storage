@@ -16,7 +16,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
         [Test]
         public void Get_OneCreate_ReturnsOneChange()
         {
-            IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             IStorageArea area = context.Area("changelogtest");
 
             IStorageChanges changes = area.Log.Get(-1);
@@ -37,7 +37,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
         [Test]
         public void Get_OneUpdate_ReturnsOneChange()
         {
-            IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             IStorageArea area = context.Area("changelogtest");
 
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
@@ -61,7 +61,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
         [Test]
         public void Get_OneDelete_ReturnsOneChange()
         {
-            IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             IStorageArea area = context.Area("changelogtest");
 
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");

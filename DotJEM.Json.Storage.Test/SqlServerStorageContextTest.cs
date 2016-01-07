@@ -16,7 +16,7 @@ namespace DotJEM.Json.Storage.Test
         [TestCase("data")]
         public void CreateTable(string contentType)
         {
-            IStorageContext context = new SqlServerStorageContext("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True");
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             
             IStorageConfigurator config = context.Configure;
             config.MapField(JsonField.Id, "id");

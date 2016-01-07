@@ -37,12 +37,12 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="ps\sql-server-create-db.ps1" />
     <None Include="scriptcs_bin\msbuild.csx" />
     <None Include="util.csx" />
     <None Include="build.csx" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="ps\sql-server-setup.ps1" />
     <Content Include="scriptcs_bin\Spawn.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

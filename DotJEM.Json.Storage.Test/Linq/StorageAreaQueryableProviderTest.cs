@@ -13,7 +13,7 @@ namespace DotJEM.Json.Storage.Test.Linq
     [TestFixture]
     public class StorageAreaQueryableProviderTest
     {
-        [Test]
+        [Test, Ignore("No Linq yet")]
         public void Provide()
         {
             StorageAreaQ storage = new StorageAreaQ(new SqlConnection("Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True"));
