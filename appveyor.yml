@@ -39,6 +39,7 @@ build:
 before_test:
   - ps: .\ci\ps\sql-server-enable-tcp.ps1
   - ps: .\ci\ps\sql-server-create-db.ps1
+  - cmd: sqlcmd -S ".\SQL2014" -U "sa" -P "Password12!" -Q "SELECT * FROM information_schema.tables;" -d "json"
 
 test:
   assemblies:
