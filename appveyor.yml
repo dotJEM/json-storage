@@ -37,6 +37,10 @@ build:
   publish_nuget: true
   publish_nuget_symbols: true
 
+before_test:
+  - ps: .\ci\ps\sql-server-create-db.ps1
+  - ps: .\ci\ps\sql-server-setup-dev-alias.ps1
+
 test:
   assemblies:
     - '**\*.test.dll'
