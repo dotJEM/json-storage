@@ -13,8 +13,8 @@ $tcp.IsEnabled = $true
 $tcp.alter()
 
 # Start services
+Restart-Service "MSSQL`$$instance"
 Set-Service SQLBrowser -StartupType Manual
 Start-Service SQLBrowser
 # Start-Service "MSSQL`$$instance"
 
-Restart-Service "MSSQL`$$instance"
