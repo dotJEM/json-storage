@@ -1,4 +1,0 @@
-[submodule "external/json-index"]
-	path = external/json-index
-	url = https://github.com/dotJEM/json-index
-	branch = master

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using DotJEM.Json.Index.Sharding;
 using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
@@ -42,7 +41,7 @@ namespace DotJEM.Json.Storage
         public IStorageArea Area(string name = "content")
         {
             if (!openAreas.ContainsKey(name))
-                return openAreas[name] = new SqlServerStorageArea(this, name, manager.Initialized(), index.Open(name));
+                return openAreas[name] = new SqlServerStorageArea(this, name, manager.Initialized());
             return openAreas[name];
         }
 
@@ -55,7 +54,5 @@ namespace DotJEM.Json.Storage
         {
             return new SqlConnection(connectionString);
         }
-
-        private readonly IJsonIndexContext index = new LuceneJsonIndexContext();
     }
 }

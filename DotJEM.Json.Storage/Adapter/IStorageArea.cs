@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using DotJEM.Json.Index.Sharding;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
 using DotJEM.Json.Storage.Queries;
@@ -28,8 +27,6 @@ namespace DotJEM.Json.Storage.Adapter
 
     public class SqlServerStorageArea : IStorageArea
     {
-        private readonly IJsonIndex index;
-
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly StorageMigrationManager migration;
@@ -56,14 +53,13 @@ namespace DotJEM.Json.Storage.Adapter
 
         internal ICommandFactory Commands { get; }
 
-        public SqlServerStorageArea(SqlServerStorageContext context, string name, StorageMigrationManager migration, IJsonIndex index)
+        public SqlServerStorageArea(SqlServerStorageContext context, string name, StorageMigrationManager migration)
         {
             Name = name;
             Validator.ValidateArea(name);
 
             this.context = context;
             this.migration = migration;
-            this.index = index;
             using (var conn = context.Connection())
             {
                 Commands = new SqlServerCommandFactory(conn.Database, name);
