@@ -42,6 +42,7 @@
     <None Include="build.csx" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ps\sql-server-setup.ps1" />
     <Content Include="scriptcs_bin\Spawn.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
