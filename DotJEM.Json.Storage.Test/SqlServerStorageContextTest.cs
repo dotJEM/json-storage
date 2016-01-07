@@ -16,6 +16,8 @@ namespace DotJEM.Json.Storage.Test
         [TestCase("data")]
         public void CreateTable(string contentType)
         {
+            Console.WriteLine($"CONNECTION STRING ~~~ : {TestContext.ConnectionString}");
+
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             
             IStorageConfigurator config = context.Configure;

@@ -3,7 +3,7 @@ version: 0.0.{build}
 configuration: Release
 
 environment:
-  appveyor_sqlconnection: 'Server=(local)\SQL2014;Database=json;User ID=sa;Password=Password12!'
+  appveyor_sqlconnection: 'Data Source=.\SQL2014;Initial Catalog=json;User ID=sa;Password=Password12!'
 
 init:
 - ps: Update-AppveyorBuild -Version "0.0.$env:appveyor_build_number-sha.$($env:appveyor_repo_commit.substring(0,7))"
