@@ -15,4 +15,6 @@ $tcp.alter()
 # Start services
 Set-Service SQLBrowser -StartupType Manual
 Start-Service SQLBrowser
-Start-Service "MSSQL`$$instance"
+# Start-Service "MSSQL`$$instance"
+
+Restart-Service 'MSSQL`$$instance'
