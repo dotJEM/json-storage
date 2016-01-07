@@ -12,6 +12,12 @@ $tcp = $wmi.GetSmoObject($uri)
 $tcp.IsEnabled = $true
 $tcp.alter()
 
+# Enable named pipes
+$uri = "ManagedComputer[@Name='$server']/ServerInstance[@Name='$instance']/ServerProtocol[@Name='Np']"
+$np = $wmi.GetSmoObject($uri)
+$np.IsEnabled = $true
+$np.Alter()
+
 # Start services
 Restart-Service "MSSQL`$$instance"
 Set-Service SQLBrowser -StartupType Manual
