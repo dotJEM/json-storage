@@ -26,16 +26,16 @@ clone_depth: 3
 pull_requests:
   do_not_increment_build_number: true
 
-install:
-  - ps: . .\ci\ps\sql-server-setup-create-db.ps1
-  - ps: . .\ci\ps\sql-server-setup-dev-alias.ps1
-
 before_build:
   nuget restore
 
 build:
   publish_nuget: true
   publish_nuget_symbols: true
+
+after_build:
+  - ps: . .\ci\ps\sql-server-setup-create-db.ps1
+  - ps: . .\ci\ps\sql-server-setup-dev-alias.ps1
 
 test:
   assemblies:
