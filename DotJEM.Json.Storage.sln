@@ -26,6 +26,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage.Benchma
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ci", "ci\ci.csproj", "{1536FE3E-3518-41BB-A6BD-8D49218E68CD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotJEM.Json.Storage.CommandLine", "DotJEM.Json.Storage.CommandLine\DotJEM.Json.Storage.CommandLine.csproj", "{2829AF05-5153-4E93-99A6-452AE5C3F720}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1536FE3E-3518-41BB-A6BD-8D49218E68CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2829AF05-5153-4E93-99A6-452AE5C3F720}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2829AF05-5153-4E93-99A6-452AE5C3F720}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2829AF05-5153-4E93-99A6-452AE5C3F720}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2829AF05-5153-4E93-99A6-452AE5C3F720}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
