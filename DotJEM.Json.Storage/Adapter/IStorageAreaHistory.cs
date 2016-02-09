@@ -11,6 +11,8 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaHistory
     {
+        JObject Get(Guid guid, int version);
+
         IEnumerable<JObject> Get(Guid guid, DateTime? from = null, DateTime? to = null);
         IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
         void Create(JObject json, bool deleted);
@@ -29,6 +31,17 @@ namespace DotJEM.Json.Storage.Adapter
             this.context = context;
         }
 
+        public JObject Get(Guid guid, int version)
+        {
+            if (!TableExists)
+                return null;
+
+            return InternalGet("SelectHistoryForByVersion",
+                new SqlParameter(HistoryField.Fid.ToString(), guid),
+                new SqlParameter(StorageField.Version.ToString(), version))
+                .SingleOrDefault();
+        }
+
         public IEnumerable<JObject> Get(Guid guid, DateTime? @from = null, DateTime? to = null)
         {
             if (!TableExists)
@@ -36,10 +49,28 @@ namespace DotJEM.Json.Storage.Adapter
 
             if (@from.HasValue)
             {
+                if (to.HasValue)
+                {
+
+                    return InternalGet("SelectHistoryForBetweenDate",
+                        new SqlParameter(HistoryField.Fid.ToString(), guid),
+                        new SqlParameter("fromdate", @from.Value),
+                        new SqlParameter("todate", to.Value));
+                }
+
                 return InternalGet("SelectHistoryForFromDate",
                     new SqlParameter(HistoryField.Fid.ToString(), guid),
                     new SqlParameter(StorageField.Updated.ToString(), @from.Value));
             }
+
+            if (to.HasValue)
+            {
+
+                return InternalGet("SelectHistoryForToDate",
+                    new SqlParameter(HistoryField.Fid.ToString(), guid),
+                    new SqlParameter(StorageField.Updated.ToString(), to.Value));
+            }
+
             return InternalGet("SelectHistoryFor",
                 new SqlParameter(HistoryField.Fid.ToString(), guid));
         }
@@ -140,8 +171,6 @@ namespace DotJEM.Json.Storage.Adapter
             json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
             return json;
         }
-
-
 
         private JObject ExecuteDecorators(JObject json)
         {

@@ -21,7 +21,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize
         public DateTime Updated { get; protected set; }
 
         public long Version { get; protected set; }
-        public string Reference { get { return reference.Value; } }
+        public string Reference => reference.Value;
         public string Area { get; protected set; }
 
         private readonly Lazy<JObject> entity;

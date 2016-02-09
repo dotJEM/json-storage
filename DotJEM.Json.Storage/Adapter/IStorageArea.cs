@@ -83,7 +83,7 @@ namespace DotJEM.Json.Storage.Adapter
         public IEnumerable<JObject> Get(string contentType)
         {
             if (contentType == null)
-                throw new ArgumentNullException("contentType");
+                throw new ArgumentNullException(nameof(contentType));
 
             return InternalGet("SelectAllByContentType",
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));

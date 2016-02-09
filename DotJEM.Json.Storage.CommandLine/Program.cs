@@ -1,16 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace DotJEM.Json.Storage.Debug
+namespace DotJEM.Json.Storage.CommandLine
 {
     class Program
     {
@@ -30,10 +27,6 @@ namespace DotJEM.Json.Storage.Debug
             catch (InvalidCommandException ex)
             {
                 Console.WriteLine(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                throw;
             }
         }
 

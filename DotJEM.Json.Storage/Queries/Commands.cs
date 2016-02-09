@@ -60,7 +60,7 @@ namespace DotJEM.Json.Storage.Queries
         public SqlServerCommandFactory(string database, string table)
         {
             self = this;
-
+            //TODO: Now er can use C#'s new interpolation feature.
             vars.Add("id", StorageField.Id)
                 .Add("ref", StorageField.Reference)
                 .Add("version", StorageField.Version)
@@ -144,7 +144,10 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectHistoryFor = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} ORDER BY [{version}] DESC;");
             self.SelectDeletedHistoryByContentType = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{type}] = @{type} ORDER BY [{version}];");
 
+            self.SelectHistoryForByVersion = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{version}] = @{version}");
             self.SelectHistoryForFromDate = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] >= @{updated} ORDER BY [{version}] DESC;");
+            self.SelectHistoryForToDate = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] <= @{updated} ORDER BY [{version}] DESC;");
+            self.SelectHistoryForBetweenDate = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [fromdate] >= @fromdate AND [todate] <= @todate ORDER BY [{version}] DESC;");
             self.SelectDeletedHistoryByContentTypeFromDate = vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
 
             self.CreateHistoryTable = vars.Format(
