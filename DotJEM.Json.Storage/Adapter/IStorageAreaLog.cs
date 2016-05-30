@@ -13,8 +13,8 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
-        IStorageChanges Get();
-        IStorageChanges Get(long token);
+        IStorageChanges Get(bool includeDeletes = true);
+        IStorageChanges Get(long token, bool includeDeletes = true);
     }
 
     public interface IStorageChanges : IEnumerable<IStorageChange>
@@ -60,7 +60,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         public override string ToString()
         {
-            return string.Format("Created: {0}, Updated: {1}, Deleted: {2}", Created, Updated, Deleted);
+            return $"Created: {Created}, Updated: {Updated}, Deleted: {Deleted}";
         }
     }
 
@@ -70,11 +70,11 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly ILookup<ChangeType, JObject> changeLookup;
         private readonly Lazy<ChangeCount> count;
         
-        public long Token { get; private set; }
-        public ChangeCount Count { get { return count.Value; } }
-        public IEnumerable<JObject> Created { get { return changeLookup[ChangeType.Create]; } }
-        public IEnumerable<JObject> Updated { get { return changeLookup[ChangeType.Update]; } }
-        public IEnumerable<JObject> Deleted { get { return changeLookup[ChangeType.Delete]; } }
+        public long Token { get; }
+        public ChangeCount Count => count.Value;
+        public IEnumerable<JObject> Created => changeLookup[ChangeType.Create];
+        public IEnumerable<JObject> Updated => changeLookup[ChangeType.Update];
+        public IEnumerable<JObject> Deleted => changeLookup[ChangeType.Delete];
 
         public StorageChanges(long token, List<IStorageChange> changes)
         {
@@ -104,9 +104,9 @@ namespace DotJEM.Json.Storage.Adapter
 
     public class StorageChange : IStorageChange
     {
-        public long Token { get; private set; }
-        public ChangeType Type { get; private set; }
-        public JObject Entity { get { return entity.Value; } }
+        public long Token { get; }
+        public ChangeType Type { get; }
+        public JObject Entity => entity.Value;
 
         private readonly Lazy<JObject> entity; 
 
@@ -253,12 +253,12 @@ namespace DotJEM.Json.Storage.Adapter
             return change;
         }
 
-        public IStorageChanges Get()
+        public IStorageChanges Get(bool includeDeletes = true)
         {
-            return Get(previousToken);
+            return Get(previousToken, includeDeletes);
         }
 
-        public IStorageChanges Get(long token)
+        public IStorageChanges Get(long token, bool includeDeletes = true)
         {
             if(!TableExists)
                 return new StorageChanges(-1, new List<IStorageChange>());
@@ -268,7 +268,9 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = area.Commands["SelectChangedObjectsDestinct"];
+                    command.CommandText = includeDeletes 
+                        ? area.Commands["SelectChangesWithDeletes"]
+                        : area.Commands["SelectChangesNoDeletes"];
                     command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
 
                     using (SqlDataReader reader = command.ExecuteReader())

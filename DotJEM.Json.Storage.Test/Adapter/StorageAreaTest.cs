@@ -81,5 +81,25 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             Console.WriteLine(changes.First().Entity);
         }
+
+        [Test]
+        public void Get_OneDeleteNoDeletes_ReturnsZeroChange()
+        {
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+            IStorageArea area = context.Area("changelogtest");
+
+            JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
+            create["unique_field"] = Guid.NewGuid();
+
+            JObject inserted = area.Insert("content", create);
+            inserted["unique_field"] = Guid.NewGuid();
+
+            IStorageChanges changes = area.Log.Get(-1);
+
+            area.Delete((Guid)inserted["$id"]);
+            changes = area.Log.Get(changes.Token, false);
+
+            Assert.That(changes.Count(), Is.EqualTo(0));
+        }
     }
 }

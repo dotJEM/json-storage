@@ -140,18 +140,18 @@ namespace DotJEM.Json.Storage.Queries
             
             */
 
-            dynamic spec = null;// = new spec("");
+            //dynamic spec = null;// = new spec("");
 
-            spec
-                .Column("id", "uniqueidentifier", "not null")
-                .Column("ref", "uniqueidentifier", "not null")
-                .Column("version", "uniqueidentifier", "not null")
-                .Column("type", "uniqueidentifier", "not null")
-                .Column("updated", "uniqueidentifier", "not null")
-                .Column("data", "uniqueidentifier", "not null")
-                .Column("RV", "uniqueidentifier", "not null")
-                .Constraint()
-                .Index();
+            //spec
+            //    .Column("id", "uniqueidentifier", "not null")
+            //    .Column("ref", "uniqueidentifier", "not null")
+            //    .Column("version", "uniqueidentifier", "not null")
+            //    .Column("type", "uniqueidentifier", "not null")
+            //    .Column("updated", "uniqueidentifier", "not null")
+            //    .Column("data", "uniqueidentifier", "not null")
+            //    .Column("RV", "uniqueidentifier", "not null")
+            //    .Constraint()
+            //    .Index();
 
 
             self.CreateTable = vars.Format(
@@ -281,6 +281,66 @@ namespace DotJEM.Json.Storage.Queries
                     GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}]
                   ORDER BY [Token];
              ");
+
+            self.SelectChangesWithDeletes = vars.Format(@"
+                SELECT TOP(5000)
+	                {tableFullName}.Id,
+	                {tableFullName}.Reference, 
+	                {tableFullName}.Version, 
+	                {tableFullName}.ContentType, 
+	                {tableFullName}.Created, 
+	                {tableFullName}.Updated, 
+	                {tableFullName}.Data, 
+	                {tableFullName}.RV,
+	
+	                cl.[Action] AS [Action],
+	                cl.[Data] AS [Payload],
+	                cl.Token,
+	                cl.[{fid}]
+                FROM {tableFullName}
+
+	                RIGHT OUTER JOIN (
+		                SELECT clo.Token, clo.[{fid}], clx.Action, clx.Data
+		                FROM (	
+			                SELECT MAX([{id}]) as Token, [{fid}] 
+  			                FROM {logTableFullName} WHERE [{id}] > @token
+			                GROUP BY [{fid}]
+			                 ) clo INNER JOIN {logTableFullName} clx ON clx.Id = clo.Token
+                    ) cl ON cl.[{fid}] = {tableFullName}.[{id}]
+
+                ORDER BY [Token]
+            ");
+
+            self.SelectChangesNoDeletes = vars.Format(@"
+                SELECT TOP(5000)
+	                {tableFullName}.Id,
+	                {tableFullName}.Reference, 
+	                {tableFullName}.Version, 
+	                {tableFullName}.ContentType, 
+	                {tableFullName}.Created, 
+	                {tableFullName}.Updated, 
+	                {tableFullName}.Data, 
+	                {tableFullName}.RV,
+	
+	                cl.[Action] AS [Action],
+	                cl.[Data] AS [Payload],
+	                cl.Token,
+	                cl.[{fid}]
+                FROM {tableFullName}
+
+	                RIGHT OUTER JOIN (
+		                SELECT clo.Token, clo.[{fid}], clx.Action, clx.Data
+		                FROM (	
+			                SELECT MAX([{id}]) as Token, [{fid}] 
+  			                FROM {logTableFullName} WHERE [{id}] > @token
+			                GROUP BY [{fid}]
+			                 ) clo INNER JOIN {logTableFullName} clx ON clx.Id = clo.Token
+                    ) cl ON cl.[{fid}] = {tableFullName}.[{id}]
+
+                WHERE Action <> 'Delete'
+
+                ORDER BY [Token]
+            ");
 
                   //          SELECT MAX(clog.Token) FROM (SELECT TOP(5000) 
                   //     cl.Token
