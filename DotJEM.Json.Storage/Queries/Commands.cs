@@ -114,6 +114,46 @@ namespace DotJEM.Json.Storage.Queries
 
             self.SelectSingle = vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
 
+            /*
+            Table Spec:
+                Name: 
+                  {tableName}
+
+                Columns:
+                  {id}] uniqueidentifier NOT NULL
+                  {ref}] bigint NOT NULL
+                  {version} int NOT NULL
+                  {type} varchar(256) NOT NULL
+                  {created} datetime NOT NULL
+                  {updated} datetime NOT NULL
+                  {data} varbinary(max) NOT NULL
+                  RV rowversion NOT NULL
+                  
+                Constraints:
+                  PK_{tableName} PRIMARY KEY CLUSTERED ( Id ASC )
+                    With:
+                      PAD_INDEX OFF
+                      STATISTICS_NORECOMPUTE = OFF
+                      IGNORE_DUP_KEY = OFF
+                      ALLOW_ROW_LOCKS = ON
+                      ALLOW_PAGE_LOCKS = ON
+            
+            */
+
+            dynamic spec = null;// = new spec("");
+
+            spec
+                .Column("id", "uniqueidentifier", "not null")
+                .Column("ref", "uniqueidentifier", "not null")
+                .Column("version", "uniqueidentifier", "not null")
+                .Column("type", "uniqueidentifier", "not null")
+                .Column("updated", "uniqueidentifier", "not null")
+                .Column("data", "uniqueidentifier", "not null")
+                .Column("RV", "uniqueidentifier", "not null")
+                .Constraint()
+                .Index();
+
+
             self.CreateTable = vars.Format(
                 @"CREATE TABLE [dbo].[{tableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
@@ -125,7 +165,7 @@ namespace DotJEM.Json.Storage.Queries
                           [{data}] [varbinary](max) NOT NULL,
                           [RV] [rowversion] NOT NULL,
                           CONSTRAINT [PK_{tableName}] PRIMARY KEY CLUSTERED (
-                            [Id] ASC
+                            [{id}] ASC
                           ) WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
                         ) ON [PRIMARY];
 
