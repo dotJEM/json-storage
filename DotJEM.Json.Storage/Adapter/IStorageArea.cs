@@ -143,7 +143,7 @@ namespace DotJEM.Json.Storage.Adapter
 
             using (SqlCommand command = new SqlCommand { Connection = connection })
             {
-                DateTime updateTime = DateTime.Now;
+                DateTime updateTime = DateTime.UtcNow;
                 command.CommandText = Commands["Update"];
                 command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
                 command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);

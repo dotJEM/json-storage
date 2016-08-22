@@ -35,7 +35,7 @@ namespace DotJEM.Json.Storage
             Serializer = new BsonSerializer();
             Configuration = new StorageConfiguration();
 
-            manager = new StorageMigrationManager(Configuration); 
+            manager = new StorageMigrationManager(Configuration);
         }
 
         public IStorageArea Area(string name = "content")
