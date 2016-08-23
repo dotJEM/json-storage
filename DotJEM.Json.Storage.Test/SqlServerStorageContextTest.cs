@@ -36,24 +36,24 @@ namespace DotJEM.Json.Storage.Test
             }).ToArray();
         }
 
-        [Test]
-        public void TestTransactionScope()
-        {
-            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
-            context.Configure.Area("transactions").EnableHistory();
+        //[Test]
+        //public void TestTransactionScope()
+        //{
+        //    IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+        //    context.Configure.Area("transactions").EnableHistory();
 
-            IStorageArea area = context.Area("transactions");
+        //    IStorageArea area = context.Area("transactions");
             
             
-            using (var scope = new TransactionScope())
-            {
-                area.Insert("foo", JObject.FromObject(JObject.Parse("{ name: 'Potatoes' }")));
-                //scope.Complete();
-            }
+        //    using (var scope = new TransactionScope())
+        //    {
+        //        area.Insert("foo", JObject.FromObject(JObject.Parse("{ name: 'Potatoes' }")));
+        //        //scope.Complete();
+        //    }
 
-            Assert.That(area.Get().Count(), Is.EqualTo(0));
+        //    Assert.That(area.Get().Count(), Is.EqualTo(0));
 
-        }
+        //}
 
         private static void GetValue(string contentType, IStorageArea area)
         {
