@@ -18,7 +18,9 @@ namespace DotJEM.Json.Storage.Adapter
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
         IEnumerable<JObject> Get();
+        IEnumerable<JObject> Get(int rowindex, int count = 100);
         IEnumerable<JObject> Get(string contentType);
+        IEnumerable<JObject> Get(string contentType, int rowindex, int count = 100);
         JObject Get(Guid guid);
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
@@ -80,6 +82,14 @@ namespace DotJEM.Json.Storage.Adapter
             return InternalGet("SelectAll");
         }
 
+        public IEnumerable<JObject> Get(int rowindex, int count = 100)
+        {
+            return InternalGet("SelectAllPaged",
+                new SqlParameter("rowstart", rowindex),
+                new SqlParameter("rowend", rowindex+count)
+                );
+        }
+
         public IEnumerable<JObject> Get(string contentType)
         {
             if (contentType == null)
@@ -88,6 +98,19 @@ namespace DotJEM.Json.Storage.Adapter
             return InternalGet("SelectAllByContentType",
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));
         }
+
+        public IEnumerable<JObject> Get(string contentType, int rowindex, int count = 100)
+        {
+            if (contentType == null)
+                throw new ArgumentNullException(nameof(contentType));
+            
+            return InternalGet("SelectAllPagedByContentType",
+                new SqlParameter(StorageField.ContentType.ToString(), contentType),
+                new SqlParameter("rowstart", rowindex),
+                new SqlParameter("rowend", rowindex + count));
+        }
+
+
 
         public JObject Get(Guid guid)
         {
@@ -178,7 +201,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.CommandText = Commands["Delete"];
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
 
-                    //TODO: Transactions (DAMMIT! hoped we could avoid that)
+                    //TODO: Transactions (DAMMIT! hoped we could avoid that) - Need to pass the connection around in this case though!.
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
                         JObject deleted = RunDataReader(reader).SingleOrDefault();
@@ -201,12 +224,9 @@ namespace DotJEM.Json.Storage.Adapter
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-
-                var entities = GetEntities(cmd, parameters, connection);
-
+                List<JObject> entities = GetEntities(cmd, parameters, connection);
                 // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
                 entities = MigrateEntities(entities, connection);
-
                 return entities;
             }
         }
@@ -365,9 +385,9 @@ namespace DotJEM.Json.Storage.Adapter
         /// <returns></returns>
         public static string Encode(long input)
         {
-            if (input < 0) throw new ArgumentOutOfRangeException("input", input, "input cannot be negative");
+            if (input < 0) throw new ArgumentOutOfRangeException(nameof(input), input, "input cannot be negative");
 
-            var result = new Stack<char>();
+            Stack<char> result = new Stack<char>();
             while (input != 0)
             {
                 result.Push(digits[input % 36]);
@@ -383,7 +403,7 @@ namespace DotJEM.Json.Storage.Adapter
         /// <returns></returns>
         public static long Decode(string input)
         {
-            var reversed = input.Reverse();
+            IEnumerable<char> reversed = input.Reverse();
             long result = 0;
             int pos = 0;
             foreach (char c in reversed)

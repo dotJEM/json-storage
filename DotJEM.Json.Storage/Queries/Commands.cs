@@ -111,8 +111,27 @@ namespace DotJEM.Json.Storage.Queries
             //TODO: Requires paging!
             self.SelectAll = vars.Format("SELECT * FROM {tableFullName} ORDER BY [{created}];");
             self.SelectAllByContentType = vars.Format("SELECT * FROM {tableFullName} WHERE [{type}] = @{type} ORDER BY [{created}];");
-
             self.SelectSingle = vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
+
+            self.SelectAllPaged = vars.Format(@"
+                SELECT  *
+                FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [{created}] ) AS rn, *
+                          FROM      {tableFullName}
+                        ) AS PagedResult
+                WHERE   rn >= @rowstart
+                    AND rn < @rowend
+            ");
+
+
+            self.SelectAllPagedByContentType = vars.Format(@"
+                SELECT  *
+                FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [{created}] ) AS rn, *
+                          FROM      {tableFullName}
+                          WHERE [{type}] = @{type}
+                        ) AS PagedResult
+                WHERE   rn >= @rowstart
+                    AND rn < @rowend
+            ");
 
             /*
             Table Spec:
