@@ -25,6 +25,8 @@ namespace DotJEM.Json.Storage.Adapter
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
         JObject Delete(Guid guid);
+
+        long Count(string contentType = null);
     }
 
     public class SqlServerStorageArea : IStorageArea
@@ -41,6 +43,7 @@ namespace DotJEM.Json.Storage.Adapter
         public bool HistoryEnabled { get; }
 
         public IStorageAreaLog Log => log;
+
 
         public IStorageAreaHistory History
         {
@@ -156,6 +159,31 @@ namespace DotJEM.Json.Storage.Adapter
             {
                 connection.Open();
                 return InternalUpdate(id, json, connection);
+            }
+        }
+
+        public long Count(string contentType = null)
+        {
+            if (!TableExists)
+                return 0;
+
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    if (string.IsNullOrEmpty(contentType))
+                    {
+                        command.CommandText = Commands["Count"];
+                    }
+                    else
+                    {
+                        command.CommandText = Commands["CountByContentType"];
+                        command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), contentType));
+                    }
+
+                    return (long)command.ExecuteScalar();
+                }
             }
         }
 

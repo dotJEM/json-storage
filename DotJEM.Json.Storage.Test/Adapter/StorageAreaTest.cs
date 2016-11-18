@@ -151,5 +151,19 @@ namespace DotJEM.Json.Storage.Test.Adapter
                 & Has.Some.Matches<dynamic>(json => json.i == 29)
                 & Has.None.Matches<dynamic>(json => json.i == 30));
         }
+
+        [Test]
+        public void Count_All_Returns100()
+        {
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+            IStorageArea area = context.Area("pagingtest");
+
+            long countBefore = area.Count();
+            for (int i = 1; i < 101; i++) area.Insert("fiz", JObject.FromObject(new { i, text = "Just an item" }));
+
+            List<JObject> ten = area.Get("fiz", 20, 10).ToList();
+
+            Assert.That(area.Count(), Is.EqualTo(countBefore+100));
+        }
     }
 }
