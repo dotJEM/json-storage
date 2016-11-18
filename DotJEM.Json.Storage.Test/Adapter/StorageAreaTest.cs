@@ -160,9 +160,6 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             long countBefore = area.Count();
             for (int i = 1; i < 101; i++) area.Insert("fiz", JObject.FromObject(new { i, text = "Just an item" }));
-
-            List<JObject> ten = area.Get("fiz", 20, 10).ToList();
-
             Assert.That(area.Count(), Is.EqualTo(countBefore+100));
         }
     }
