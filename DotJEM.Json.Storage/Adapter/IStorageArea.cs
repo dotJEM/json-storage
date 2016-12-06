@@ -18,9 +18,9 @@ namespace DotJEM.Json.Storage.Adapter
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
         IEnumerable<JObject> Get();
-        IEnumerable<JObject> Get(int rowindex, int count = 100);
+        IEnumerable<JObject> Get(long rowindex, int count = 100);
         IEnumerable<JObject> Get(string contentType);
-        IEnumerable<JObject> Get(string contentType, int rowindex, int count = 100);
+        IEnumerable<JObject> Get(string contentType, long rowindex, int count = 100);
         JObject Get(Guid guid);
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
@@ -85,7 +85,7 @@ namespace DotJEM.Json.Storage.Adapter
             return InternalGet("SelectAll");
         }
 
-        public IEnumerable<JObject> Get(int rowindex, int count = 100)
+        public IEnumerable<JObject> Get(long rowindex, int count = 100)
         {
             return InternalGet("SelectAllPaged",
                 new SqlParameter("rowstart", rowindex),
@@ -102,7 +102,7 @@ namespace DotJEM.Json.Storage.Adapter
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));
         }
 
-        public IEnumerable<JObject> Get(string contentType, int rowindex, int count = 100)
+        public IEnumerable<JObject> Get(string contentType, long rowindex, int count = 100)
         {
             if (contentType == null)
                 throw new ArgumentNullException(nameof(contentType));
@@ -325,15 +325,15 @@ namespace DotJEM.Json.Storage.Adapter
                 json = new JObject();
                 json["$exception"] = ex.ToString();
             }
-
+            DateTime dt = new DateTime(DateTime.Now.Ticks, DateTimeKind.Utc);
 
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
             json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = Name;
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
-            json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
-            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
+            json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(reader.GetDateTime(createdColumn), DateTimeKind.Utc);
+            json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(reader.GetDateTime(updatedColumn), DateTimeKind.Utc);
             return json;
         }
 
