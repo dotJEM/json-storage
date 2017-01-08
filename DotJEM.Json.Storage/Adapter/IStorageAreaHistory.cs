@@ -167,8 +167,8 @@ namespace DotJEM.Json.Storage.Adapter
             json[context.Configuration.Fields[JsonField.Area]] = area.Name;
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
-            json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
-            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
+            json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(reader.GetDateTime(createdColumn), DateTimeKind.Utc);
+            json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(reader.GetDateTime(updatedColumn), DateTimeKind.Utc);
             return json;
         }
 

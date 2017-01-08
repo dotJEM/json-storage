@@ -18,11 +18,15 @@ namespace DotJEM.Json.Storage.Adapter
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
         IEnumerable<JObject> Get();
+        IEnumerable<JObject> Get(long rowindex, int count = 100);
         IEnumerable<JObject> Get(string contentType);
+        IEnumerable<JObject> Get(string contentType, long rowindex, int count = 100);
         JObject Get(Guid guid);
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
         JObject Delete(Guid guid);
+
+        long Count(string contentType = null);
     }
 
     public class SqlServerStorageArea : IStorageArea
@@ -39,6 +43,7 @@ namespace DotJEM.Json.Storage.Adapter
         public bool HistoryEnabled { get; }
 
         public IStorageAreaLog Log => log;
+
 
         public IStorageAreaHistory History
         {
@@ -80,6 +85,14 @@ namespace DotJEM.Json.Storage.Adapter
             return InternalGet("SelectAll");
         }
 
+        public IEnumerable<JObject> Get(long rowindex, int count = 100)
+        {
+            return InternalGet("SelectAllPaged",
+                new SqlParameter("rowstart", rowindex),
+                new SqlParameter("rowend", rowindex+count)
+                );
+        }
+
         public IEnumerable<JObject> Get(string contentType)
         {
             if (contentType == null)
@@ -88,6 +101,19 @@ namespace DotJEM.Json.Storage.Adapter
             return InternalGet("SelectAllByContentType",
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));
         }
+
+        public IEnumerable<JObject> Get(string contentType, long rowindex, int count = 100)
+        {
+            if (contentType == null)
+                throw new ArgumentNullException(nameof(contentType));
+            
+            return InternalGet("SelectAllPagedByContentType",
+                new SqlParameter(StorageField.ContentType.ToString(), contentType),
+                new SqlParameter("rowstart", rowindex),
+                new SqlParameter("rowend", rowindex + count));
+        }
+
+
 
         public JObject Get(Guid guid)
         {
@@ -108,7 +134,7 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    DateTime created = DateTime.Now;
+                    DateTime created = DateTime.UtcNow;
                     command.CommandText = Commands["Insert"];
                     command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                     command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
@@ -136,6 +162,31 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
+        public long Count(string contentType = null)
+        {
+            if (!TableExists)
+                return 0;
+
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    if (string.IsNullOrEmpty(contentType))
+                    {
+                        command.CommandText = Commands["Count"];
+                    }
+                    else
+                    {
+                        command.CommandText = Commands["CountByContentType"];
+                        command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), contentType));
+                    }
+
+                    return (long)command.ExecuteScalar();
+                }
+            }
+        }
+
         private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
         {
             JObject jsonWithMetadata = (JObject)json.DeepClone();
@@ -143,7 +194,7 @@ namespace DotJEM.Json.Storage.Adapter
 
             using (SqlCommand command = new SqlCommand { Connection = connection })
             {
-                DateTime updateTime = DateTime.Now;
+                DateTime updateTime = DateTime.UtcNow;
                 command.CommandText = Commands["Update"];
                 command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
                 command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
@@ -178,7 +229,7 @@ namespace DotJEM.Json.Storage.Adapter
                     command.CommandText = Commands["Delete"];
                     command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
 
-                    //TODO: Transactions (DAMMIT! hoped we could avoid that)
+                    //TODO: Transactions (DAMMIT! hoped we could avoid that) - Need to pass the connection around in this case though!.
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
                         JObject deleted = RunDataReader(reader).SingleOrDefault();
@@ -201,12 +252,9 @@ namespace DotJEM.Json.Storage.Adapter
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-
-                var entities = GetEntities(cmd, parameters, connection);
-
+                List<JObject> entities = GetEntities(cmd, parameters, connection);
                 // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
                 entities = MigrateEntities(entities, connection);
-
                 return entities;
             }
         }
@@ -277,15 +325,15 @@ namespace DotJEM.Json.Storage.Adapter
                 json = new JObject();
                 json["$exception"] = ex.ToString();
             }
-
+            DateTime dt = new DateTime(DateTime.Now.Ticks, DateTimeKind.Utc);
 
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
             json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = Name;
             json[context.Configuration.Fields[JsonField.Version]] = reader.GetInt32(versionColumn);
             json[context.Configuration.Fields[JsonField.ContentType]] = reader.GetString(contentTypeColumn);
-            json[context.Configuration.Fields[JsonField.Created]] = reader.GetDateTime(createdColumn);
-            json[context.Configuration.Fields[JsonField.Updated]] = reader.GetDateTime(updatedColumn);
+            json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(reader.GetDateTime(createdColumn), DateTimeKind.Utc);
+            json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(reader.GetDateTime(updatedColumn), DateTimeKind.Utc);
             return json;
         }
 
@@ -365,9 +413,9 @@ namespace DotJEM.Json.Storage.Adapter
         /// <returns></returns>
         public static string Encode(long input)
         {
-            if (input < 0) throw new ArgumentOutOfRangeException("input", input, "input cannot be negative");
+            if (input < 0) throw new ArgumentOutOfRangeException(nameof(input), input, "input cannot be negative");
 
-            var result = new Stack<char>();
+            Stack<char> result = new Stack<char>();
             while (input != 0)
             {
                 result.Push(digits[input % 36]);
@@ -383,7 +431,7 @@ namespace DotJEM.Json.Storage.Adapter
         /// <returns></returns>
         public static long Decode(string input)
         {
-            var reversed = input.Reverse();
+            IEnumerable<char> reversed = input.Reverse();
             long result = 0;
             int pos = 0;
             foreach (char c in reversed)

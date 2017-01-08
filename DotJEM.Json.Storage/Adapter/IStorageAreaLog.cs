@@ -227,8 +227,8 @@ namespace DotJEM.Json.Storage.Adapter
                     json[context.Configuration.Fields[JsonField.Area]] = name;
                     json[context.Configuration.Fields[JsonField.Version]] = version;
                     json[context.Configuration.Fields[JsonField.ContentType]] = contentType;
-                    json[context.Configuration.Fields[JsonField.Created]] = created;
-                    json[context.Configuration.Fields[JsonField.Updated]] = updated;
+                    json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(created, DateTimeKind.Utc);
+                    json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(updated, DateTimeKind.Utc);
                     json = area.Migrate(json);
                     return json;
                 });

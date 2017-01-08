@@ -21,6 +21,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             IStorageArea area = context.Area("historytest");
 
+
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
 
