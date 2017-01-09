@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace DotJEM.Json.Storage.Stress.BPlusTree
+namespace DotJEM.Json.Storage.Stress.Index
 {
-    public class BPTree
+    public class ChangesIndex
     {
 
         //public Guid this[long key]
@@ -29,5 +25,21 @@ namespace DotJEM.Json.Storage.Stress.BPlusTree
         //        AddEntry(key, ref ii);
         //    }
         //}
+        public Guid this[long changeIndex]
+        {
+            get { return Guid.Empty; }
+        }
+
+        public long Count  => 0;
+
+        public void Add(Guid guid)
+        {
+            
+        }
+
+        public void Delete(Guid id)
+        {
+            
+        }
     }
 }

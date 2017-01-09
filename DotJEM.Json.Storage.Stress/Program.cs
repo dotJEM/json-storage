@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter;
+using DotJEM.Json.Storage.Stress.Index;
+using DotJEM.Json.Storage.Stress.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Stress
@@ -17,32 +20,30 @@ namespace DotJEM.Json.Storage.Stress
 
         static void Main(string[] args)
         {
+            ChangesIndex index = new ChangesIndex();
             ChangeProvider provider = new ChangeProvider(100, 30, 0);
 
             IStorageContext context = new SqlServerStorageContext(ConnectionString);
 
             Scheduler scheduler = new Scheduler();
-            ChangeProducer producer1 = new ChangeProducer(context.Area("stress"), provider);
-            ChangeProducer producer2 = new ChangeProducer(context.Area("stress"), provider);
-            ChangeProducer producer3 = new ChangeProducer(context.Area("stress"), provider);
-            ChangeProducer producer4 = new ChangeProducer(context.Area("stress"), provider);
-            ChangeProducer producer5 = new ChangeProducer(context.Area("stress"), provider);
+
+            IEnumerable<ChangeProducer> producers = from i in Enumerable.Range(0, 25)
+                                                    select new ChangeProducer(context.Area("stress"), provider, index, new QueueingLogWriter($"producer-{i:000}.out", 1024 * 1024 * 10, 10, false));
 
             ChangeConsumer consumer = new ChangeConsumer(context, "stress");
 
             scheduler.Start("Consume Updates.", consumer.Execute, 10.Seconds());
 
-            scheduler.Start("Producer 1.", producer1.Execute, 100.Milliseconds());
-            scheduler.Start("Producer 2.", producer2.Execute, 100.Milliseconds());
-            scheduler.Start("Producer 3.", producer3.Execute, 100.Milliseconds());
-            scheduler.Start("Producer 4.", producer4.Execute, 100.Milliseconds());
-            scheduler.Start("Producer 5.", producer5.Execute, 100.Milliseconds());
+            producers = producers.Select((producer, i) =>
+            {
+                scheduler.Start($"Producer {i:000}.", producer.Execute, 200.Milliseconds());
+                return producer;
+            }).ToArray();
 
             Console.ReadLine();
         }
     }
 
-    
     public class ChangeProvider
     {
         private readonly Random random = new Random();
@@ -53,7 +54,7 @@ namespace DotJEM.Json.Storage.Stress
             distribution = Enumerable.Repeat(ChangeType.Create, create)
                 .Concat(Enumerable.Repeat(ChangeType.Update, update))
                 .Concat(Enumerable.Repeat(ChangeType.Delete, delete))
-                .Select(type => new { type, i = random.Next() })
+                .Select(type => new {type, i = random.Next()})
                 .OrderBy(x => x.i)
                 .Select(x => x.type)
                 .ToArray();
@@ -61,12 +62,12 @@ namespace DotJEM.Json.Storage.Stress
 
         public Change Next(long index)
         {
-            if(index == 0)
+            if (index == 0)
                 return new Change(ChangeType.Create, -1);
 
-            ChangeType type = distribution[random.Next(distribution.Length-1)];
-            if(type == ChangeType.Delete || type == ChangeType.Update)
-                return new Change(type, LongRandom(index-1));
+            ChangeType type = distribution[random.Next(distribution.Length - 1)];
+            if (type == ChangeType.Delete || type == ChangeType.Update)
+                return new Change(type, LongRandom(index - 1));
             return new Change(type, -1);
         }
 
@@ -78,7 +79,7 @@ namespace DotJEM.Json.Storage.Stress
             byte[] buf = new byte[8];
             random.NextBytes(buf);
             long longRand = BitConverter.ToInt64(buf, 0);
-            return Math.Abs(longRand) % max;
+            return Math.Abs(longRand)%max;
         }
     }
 
@@ -98,49 +99,56 @@ namespace DotJEM.Json.Storage.Stress
     {
         private readonly IStorageArea area;
         private readonly ChangeProvider provider;
+        private readonly ChangesIndex index;
+        private readonly ILogWriter logger;
 
         //private BigList<Guid> entities = new BigList<Guid>();
 
-        public ChangeProducer(IStorageArea area, ChangeProvider provider)
+        public ChangeProducer(IStorageArea area, ChangeProvider provider, ChangesIndex index, ILogWriter logger)
         {
             this.area = area;
             this.provider = provider;
+            this.index = index;
+            this.logger = logger;
         }
 
         public void Execute()
         {
             Change change = provider.Next(0);
-            //Guid id = change.Type !=  ChangeType.Create ? entities[change.Index] : Guid.Empty;
+            Guid id = change.Type != ChangeType.Create ? index[change.Index] : Guid.Empty;
 
+            Stopwatch t = Stopwatch.StartNew();
             switch (change.Type)
             {
                 case ChangeType.Create:
-                    Stopwatch t = Stopwatch.StartNew();
                     JObject entity = area.Insert("dummy", new JObject());
                     t.Stop();
-                    Console.WriteLine($"Execution of 'INSERT' took {t.ElapsedMilliseconds} ms");
-                    //entities.Add((Guid)entity["$id"]);
+                    logger.Write($"Execution of 'INSERT' took {t.ElapsedMilliseconds} ms");
+                    index.Add((Guid) entity["$id"]);
                     break;
                 case ChangeType.Update:
-                    //if(entities.Count < 1)
-                    //    break;
+                    if (index.Count < 1)
+                        break;
 
-                    //area.Update(id, new JObject());
+                    area.Update(id, new JObject());
+                    t.Stop();
+                    logger.Write($"Execution of 'UPDATE' took {t.ElapsedMilliseconds} ms");
                     break;
                 case ChangeType.Delete:
-                    //if (entities.Count < 1)
-                    //    break;
+                    if (index.Count < 1)
+                        break;
 
-                    //area.Delete(id);
-                    //entities.Delete(id);
+                    area.Delete(id);
+                    index.Delete(id);
 
+                    t.Stop();
+                    logger.Write($"Execution of 'DELETE' took {t.ElapsedMilliseconds} ms");
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
     }
-
 
     public class ChangeConsumer
     {
@@ -153,24 +161,32 @@ namespace DotJEM.Json.Storage.Stress
 
         public void Execute()
         {
-            IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
+            Stopwatch timer = Stopwatch.StartNew();
+            try
+            {
+                IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
 
-            if (tuples.Sum(t => t.Item2.Count.Total) < 1)
-                return;
+                if (tuples.Sum(t => t.Item2.Count.Total) < 1)
+                    return;
 
-            // ReSharper disable ReturnValueOfPureMethodIsNotUsed
-            //  - TODO: Using SYNC here is a hack, ideally we would wan't to use a prober Async pattern, 
-            //          but this requires a bigger refactoring.
-            tuples.Select(WriteChanges).ToArray();
-            // ReSharper restore ReturnValueOfPureMethodIsNotUsed
+                // ReSharper disable ReturnValueOfPureMethodIsNotUsed
+                //  - TODO: Using SYNC here is a hack, ideally we would wan't to use a prober Async pattern, 
+                //          but this requires a bigger refactoring.
+                tuples.Select(WriteChanges).ToArray();
+                // ReSharper restore ReturnValueOfPureMethodIsNotUsed
+                timer.Stop();
+                Console.WriteLine($"Execution of 'ChangeConsumer' took {timer.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
         }
 
         private long WriteChanges(Tuple<string, IStorageChanges> tuple)
         {
             IStorageChanges changes = tuple.Item2;
-            Console.WriteLine($"Created: {changes.Count.Created}");
-            Console.WriteLine($"Updated: {changes.Count.Updated}");
-            Console.WriteLine($"Deleted: {changes.Count.Deleted}");
+            Console.WriteLine($"{changes.Count}");
             return changes.Token;
         }
     }
@@ -190,9 +206,10 @@ namespace DotJEM.Json.Storage.Stress
 
     public class Scheduler
     {
+        private readonly ILogWriter log = new QueueingLogWriter("schedulee.log", 1024*1024*32, 5, false);
         private readonly List<ScheduledTask> tasks = new List<ScheduledTask>();
 
-        public void Start(string name, Action update, TimeSpan period) => tasks.Add(new ScheduledTask(name, update, period));
+        public void Start(string name, Action update, TimeSpan period) => tasks.Add(new ScheduledTask(name, update, period, log));
 
         public void Stop()
         {
@@ -204,6 +221,7 @@ namespace DotJEM.Json.Storage.Stress
     {
         private readonly Action update;
         private readonly TimeSpan period;
+        private readonly ILogWriter log;
         private readonly AutoResetEvent handle = new AutoResetEvent(false);
 
         private bool disposed;
@@ -211,10 +229,11 @@ namespace DotJEM.Json.Storage.Stress
 
         public string Name { get; }
 
-        public ScheduledTask(string name, Action update, TimeSpan period)
+        public ScheduledTask(string name, Action update, TimeSpan period, ILogWriter log)
         {
             this.update = update;
             this.period = period;
+            this.log = log;
             this.Name = name;
 
             Next();
@@ -235,18 +254,13 @@ namespace DotJEM.Json.Storage.Stress
 
             try
             {
-                Stopwatch t = Stopwatch.StartNew();
                 update();
-                t.Stop();
-                Console.WriteLine($"Execution of '{Name}' took {t.ElapsedMilliseconds} ms");
-
-
                 Next();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Execution of '{Name}' failed.");
-                Console.WriteLine(ex);
+                log.Write($"Execution of '{Name}' failed.");
+                log.Write(ex);
 
                 // ignored
             }
@@ -258,43 +272,4 @@ namespace DotJEM.Json.Storage.Stress
             executing.Unregister(null);
         }
     }
-
-    //public class BigList<T>
-    //{
-    //    private const int PART_SIZE = 10000000;
-
-    //    private readonly List<List<T>> storage = new List<List<T>>();
-
-    //    public long Count { get; private set; }
-
-    //    public void Add(T item)
-    //    {
-    //        List<T> partition = GetPartition(Count);
-    //        partition.Add(item);
-    //        Count++;
-    //    }
-
-    //    public T this[long i]
-    //    {
-    //        get
-    //        {
-    //            List<T> partition = GetPartition(i);
-    //            int index = (int) (i%PART_SIZE);
-    //            return partition[index];
-    //        }
-    //    }
-
-    //    private List<T> GetPartition(long index)
-    //    {
-    //        int partitionIndex = (int) (index/PART_SIZE);
-    //        if (storage.Count < partitionIndex)
-    //            storage.Add(new List<T>());
-    //        return storage[partitionIndex];
-    //    }
-
-    //    public void Delete(Guid id)
-    //    {
-            
-    //    }
-    //}
 }

@@ -364,54 +364,6 @@ namespace DotJEM.Json.Storage.Queries
                 ORDER BY [Token]
             ");
 
-                  //          SELECT MAX(clog.Token) FROM (SELECT TOP(5000) 
-                  //     cl.Token
-                  //FROM [SSN3DB].[dbo].[content]
-                  //RIGHT JOIN (
-                  //  SELECT 
-                  //      MAX([Id]) as Token, [Fid] 
-                  //  FROM [SSN3DB].[dbo].[content.changelog] WHERE [Id] > 0
-                  //  GROUP BY [Fid]) cl ON cl.[Fid] = [SSN3DB].[dbo].[content].[Id]
-                  //ORDER BY [Token]) as clog;
-
-            //SELECT Log.Token, 
-            //  (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = Log.Token) as [Action],
-            //  Content.*
-            //  FROM ( SELECT
-            //            MAX(Id) as Token,
-            //            Fid 
-            //            FROM [json].[dbo].[changelogtest.changelog] 
-
-            //            GROUP BY Fid) Log
-            //  LEFT JOIN [json].[dbo].[changelogtest] Content ON Content.Id = Log.Fid;
-
-
-            //SELECT [changelogtest].*, 
-            //    (SELECT TOP 1 [Action] FROM [json].[dbo].[changelogtest.changelog] x WHERE x.Id = cl.Token) as [Action], 
-            //    cl.Token 
-            //  FROM [json].[dbo].[changelogtest]
-            //  RIGHT JOIN (
-            //    SELECT 
-            //        MAX(Id) as Token, Fid 
-            //    FROM [json].[dbo].[changelogtest.changelog] 
-            //    GROUP BY Fid) cl ON cl.Fid = [json].[dbo].[changelogtest].Id;
-
-            //--SELECT [content].*, ChangeLog.Action, ChangeLog.Token
-            //--FROM
-            //--  ( SELECT MAX(Id) as Token, Fid 
-            //--	FROM [nsw].[dbo].[content.changelog] 
-            //--	WHERE Id > @Lower AND Id < @Upper
-            //--	GROUP BY Fid
-            //--  ) CLG
-            //--CROSS APPLY
-            //--  (	SELECT TOP 1 Fid, Id as Token, [Action] 
-            //--	FROM [nsw].[dbo].[content.changelog]
-            //--	WHERE CLG.Token = Id
-            //--  ) ChangeLog
-            //--  INNER JOIN [nsw].[dbo].[content] ON ChangeLog.Fid = [content].Id;
-
-
-
             self.InsertChange = vars.Format(
                 "INSERT INTO {logTableFullName} ( [{fid}], [{action}], [{data}] ) "
                 + "OUTPUT INSERTED.* "
