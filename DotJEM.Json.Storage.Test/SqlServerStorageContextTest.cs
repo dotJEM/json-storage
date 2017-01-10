@@ -17,8 +17,6 @@ namespace DotJEM.Json.Storage.Test
         [TestCase("data")]
         public void CreateTable(string contentType)
         {
-            Console.WriteLine($"CONNECTION STRING ~~~ : {TestContext.ConnectionString}");
-
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             
             IStorageConfigurator config = context.Configure;
@@ -36,19 +34,21 @@ namespace DotJEM.Json.Storage.Test
             }).ToArray();
         }
 
-        //[Test]
+        //[Test]  //TODO: TransactionScope does not work as it tries to elevate the transaction to a trx service.
+        //                The TransactionScope class uses the CallContext and the logical setters/getters, so it is possible to implement our own simplified version that
+        //                focuses on transactions that only runs locally.
         //public void TestTransactionScope()
         //{
         //    IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
         //    context.Configure.Area("transactions").EnableHistory();
 
         //    IStorageArea area = context.Area("transactions");
-            
-            
+
+
         //    using (var scope = new TransactionScope())
         //    {
         //        area.Insert("foo", JObject.FromObject(JObject.Parse("{ name: 'Potatoes' }")));
-        //        //scope.Complete();
+        //        scope.Complete();
         //    }
 
         //    Assert.That(area.Get().Count(), Is.EqualTo(0));
