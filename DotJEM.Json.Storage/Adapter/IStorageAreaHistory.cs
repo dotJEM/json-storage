@@ -127,6 +127,7 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand(area.Commands[cmd], connection))
                 {
+                    command.CommandTimeout = context.Configuration.ReadCommandTimeout;
                     command.Parameters.AddRange(parameters);
 
                     //TODO: Dynamically read columns.

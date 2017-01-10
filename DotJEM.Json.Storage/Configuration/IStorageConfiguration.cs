@@ -9,6 +9,7 @@ namespace DotJEM.Json.Storage.Configuration
         IStorageConfigurator MapField(JsonField field, string name);
         IStorageAreaConfigurator Area(string name = "content");
         IVersionProvider VersionProvider { get; set; }
+        int ReadCommandTimeout { get; set; }
     }
 
     public interface IStorageConfiguration
@@ -18,16 +19,14 @@ namespace DotJEM.Json.Storage.Configuration
 
     public class StorageConfiguration : IStorageConfiguration, IStorageConfigurator
     {
-        private readonly IDictionary<JsonField, string> readonlyFields;
         private readonly IDictionary<JsonField, string> fields = new Dictionary<JsonField, string>();
         private readonly IDictionary<string, StorageAreaConfiguration> configurations = new Dictionary<string, StorageAreaConfiguration>();
 
-        public StorageAreaConfiguration this[string key]
-        {
-            get { return configurations.ContainsKey(key) ? configurations[key] : (configurations[key] = new StorageAreaConfiguration()); }
-        }
+        public StorageAreaConfiguration this[string key] => configurations.ContainsKey(key) ? configurations[key] : (configurations[key] = new StorageAreaConfiguration());
 
         public IVersionProvider VersionProvider { get; set; }
+
+        public int ReadCommandTimeout { get; set; }
 
         public StorageConfiguration()
         {
@@ -40,14 +39,11 @@ namespace DotJEM.Json.Storage.Configuration
             MapField(JsonField.Area, "$area");
             MapField(JsonField.SchemaVersion, "$schemaVersion");
             
-            readonlyFields = new ReadOnlyDictionary<JsonField, string>(fields);
+            Fields = new ReadOnlyDictionary<JsonField, string>(fields);
             VersionProvider = new NullVersionProvider();
         }
 
-        public IDictionary<JsonField, string> Fields
-        {
-            get { return readonlyFields; }
-        }
+        public IDictionary<JsonField, string> Fields { get; }
 
         public IStorageConfigurator MapField(JsonField field, string name)
         {

@@ -69,7 +69,7 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly List<IStorageChange> changes;
         private readonly ILookup<ChangeType, JObject> changeLookup;
         private readonly Lazy<ChangeCount> count;
-        
+
         public long Token { get; }
         public ChangeCount Count => count.Value;
         public IEnumerable<JObject> Created => changeLookup[ChangeType.Create];
@@ -81,7 +81,7 @@ namespace DotJEM.Json.Storage.Adapter
             Token = token;
             this.changes = changes;
             this.changeLookup = changes.ToLookup(change => change.Type, change => change.Entity);
-            this.count = new Lazy<ChangeCount>(() => new ChangeCount(Created.Count(),Updated.Count(),Deleted.Count()));
+            this.count = new Lazy<ChangeCount>(() => new ChangeCount(Created.Count(), Updated.Count(), Deleted.Count()));
         }
 
         public IEnumerator<IStorageChange> GetEnumerator()
@@ -108,7 +108,7 @@ namespace DotJEM.Json.Storage.Adapter
         public ChangeType Type { get; }
         public JObject Entity => entity.Value;
 
-        private readonly Lazy<JObject> entity; 
+        private readonly Lazy<JObject> entity;
 
         public StorageChange(long token, ChangeType type, Lazy<JObject> entity)
         {
@@ -136,13 +136,15 @@ namespace DotJEM.Json.Storage.Adapter
         {
             this.area = area;
             this.context = context;
+
+            this.indexes = new Lazy<Dictionary<string, IndexDefinition>>(() => LoadIndexes().ToDictionary(def => def.Name));
         }
 
         public IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action, SqlConnection connection, SqlTransaction transaction)
         {
             EnsureTable();
 
-            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction =  transaction })
+            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
             {
                 command.CommandText = area.Commands["InsertChange"];
                 command.Parameters.Add(new SqlParameter(StorageField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
@@ -261,7 +263,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IStorageChanges Get(long token, bool includeDeletes = true)
         {
-            if(!TableExists)
+            if (!TableExists)
                 return new StorageChanges(-1, new List<IStorageChange>());
 
             using (SqlConnection connection = context.Connection())
@@ -269,7 +271,8 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandText = includeDeletes 
+                    command.CommandTimeout = context.Configuration.ReadCommandTimeout;
+                    command.CommandText = includeDeletes
                         ? area.Commands["SelectChangesWithDeletes"]
                         : area.Commands["SelectChangesNoDeletes"];
                     command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
@@ -292,8 +295,74 @@ namespace DotJEM.Json.Storage.Adapter
             if (!TableExists)
                 CreateTable();
 
+            EnsureIndexes();
+
             initialized = true;
         }
+
+        private void EnsureIndexes()
+        {
+            EnsureIndex($"{area.Name}.changelog.id_index", "ChangeLogIdIndex");
+            EnsureIndex($"{area.Name}.changelog.id_fid_index", "ChangeLogIdFidIndex");
+            EnsureIndex($"{area.Name}.changelog.fid_id_index", "ChangeLogFidIdIndex");
+            EnsureIndex($"{area.Name}.changelog.action_index", "ChangeLogActionIndex");
+        }
+
+        private void EnsureIndex(string name, string commandName)
+        {
+            if (Indexes.ContainsKey(name))
+                return;
+
+            lock (padlock)
+            {
+                if (Indexes.ContainsKey(name))
+                    return;
+
+                CreateIndex(commandName);
+            }
+        }
+
+        private void CreateIndex(string commandName)
+        {
+            using (SqlConnection connection = context.Connection())
+            {
+
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    command.CommandText = area.Commands[commandName];
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        private Dictionary<string, IndexDefinition> Indexes => indexes.Value;
+
+        //TODO: Lazy evaliated result set: The lazy definition + load method could probably be mixed into a single construct making this easier in the future to manage other such constructs.
+        private readonly Lazy<Dictionary<string, IndexDefinition>> indexes;
+
+        private IEnumerable<IndexDefinition> LoadIndexes()
+        {
+            using (SqlConnection connection = context.Connection())
+            {
+                connection.Open();
+                using (SqlCommand command = new SqlCommand { Connection = connection })
+                {
+                    command.CommandText = area.Commands["ChangeLogIndexes"];
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        int nameColumn = reader.GetOrdinal("name");
+                        while (reader.Read())
+                        {
+                            string name = reader.GetString(nameColumn);
+
+                            yield return new IndexDefinition(name);
+                        }
+                    }
+                }
+            }
+        }
+        //TODO: Lazy evaliated result set end: 
 
         private bool TableExists
         {
@@ -331,5 +400,18 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
+
+
+        private class IndexDefinition
+        {
+            public string Name { get; }
+
+            public IndexDefinition(string name)
+            {
+                Name = name;
+            }
+
+        }
     }
+
 }

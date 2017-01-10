@@ -284,6 +284,7 @@ namespace DotJEM.Json.Storage.Adapter
             List<JObject> entities = new List<JObject>();
             using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
             {
+                command.CommandTimeout = context.Configuration.ReadCommandTimeout;
                 command.Parameters.AddRange(parameters);
 
                 //TODO: Dynamically read columns.

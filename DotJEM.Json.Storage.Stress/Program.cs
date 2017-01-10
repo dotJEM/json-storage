@@ -24,6 +24,7 @@ namespace DotJEM.Json.Storage.Stress
             ChangeProvider provider = new ChangeProvider(100, 30, 0);
 
             IStorageContext context = new SqlServerStorageContext(ConnectionString);
+            context.Configure.ReadCommandTimeout = 120;
 
             Scheduler scheduler = new Scheduler();
 
@@ -164,18 +165,21 @@ namespace DotJEM.Json.Storage.Stress
             Stopwatch timer = Stopwatch.StartNew();
             try
             {
-                IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
+                while (true)
+                {
+                    IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
 
-                if (tuples.Sum(t => t.Item2.Count.Total) < 1)
-                    return;
+                    if (tuples.Sum(t => t.Item2.Count.Total) < 1)
+                        return;
 
-                // ReSharper disable ReturnValueOfPureMethodIsNotUsed
-                //  - TODO: Using SYNC here is a hack, ideally we would wan't to use a prober Async pattern, 
-                //          but this requires a bigger refactoring.
-                tuples.Select(WriteChanges).ToArray();
-                // ReSharper restore ReturnValueOfPureMethodIsNotUsed
-                timer.Stop();
-                Console.WriteLine($"Execution of 'ChangeConsumer' took {timer.ElapsedMilliseconds} ms");
+                    // ReSharper disable ReturnValueOfPureMethodIsNotUsed
+                    //  - TODO: Using SYNC here is a hack, ideally we would wan't to use a prober Async pattern, 
+                    //          but this requires a bigger refactoring.
+                    tuples.Select(WriteChanges).ToArray();
+                    // ReSharper restore ReturnValueOfPureMethodIsNotUsed
+                    timer.Stop();
+                    Console.WriteLine($"Execution of 'ChangeConsumer' took {timer.ElapsedMilliseconds} ms");
+                }
             }
             catch (Exception ex)
             {
