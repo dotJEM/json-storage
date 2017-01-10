@@ -89,7 +89,7 @@ namespace DotJEM.Json.Storage.Adapter
         {
             return InternalGet("SelectAllPaged",
                 new SqlParameter("rowstart", rowindex),
-                new SqlParameter("rowend", rowindex+count)
+                new SqlParameter("rowend", rowindex + count)
                 );
         }
 
@@ -106,7 +106,7 @@ namespace DotJEM.Json.Storage.Adapter
         {
             if (contentType == null)
                 throw new ArgumentNullException(nameof(contentType));
-            
+
             return InternalGet("SelectAllPagedByContentType",
                 new SqlParameter(StorageField.ContentType.ToString(), contentType),
                 new SqlParameter("rowstart", rowindex),
@@ -132,21 +132,27 @@ namespace DotJEM.Json.Storage.Adapter
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
+                using (SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted))
                 {
-                    DateTime created = DateTime.UtcNow;
-                    command.CommandText = Commands["Insert"];
-                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
-
-                    using (SqlDataReader reader = command.ExecuteReader())
+                    JObject insert;
+                    using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
                     {
-                        var insert = RunDataReader(reader).Single();
-                        log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create);
-                        return insert;
+                        DateTime created = DateTime.UtcNow;
+                        command.CommandText = Commands["Insert"];
+                        command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
+                        command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
+                        command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
+                        command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
+
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            insert = RunDataReader(reader).Single();
+                            reader.Close();
+                        }
                     }
+                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create, connection, transaction);
+                    transaction.Commit();
+                    return insert;
                 }
             }
         }
@@ -192,28 +198,37 @@ namespace DotJEM.Json.Storage.Adapter
             JObject jsonWithMetadata = (JObject)json.DeepClone();
             jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
 
-            using (SqlCommand command = new SqlCommand { Connection = connection })
+            using (SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
             {
-                DateTime updateTime = DateTime.UtcNow;
-                command.CommandText = Commands["Update"];
-                command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
-                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
-                command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
-
-                using (SqlDataReader reader = command.ExecuteReader())
+                JObject deleted;
+                JObject update;
+                using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
                 {
-                    if (!reader.HasRows)
-                        throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+                    DateTime updateTime = DateTime.UtcNow;
+                    command.CommandText = Commands["Update"];
+                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
+                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
+                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
-                    reader.Read();
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (!reader.HasRows)
+                            throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
 
-                    var deleted = ReadPrefixedRow("DELETED", reader);
-                    history?.Create(deleted, false);
+                        reader.Read();
 
-                    var update = ReadPrefixedRow("INSERTED", reader);
-                    log.Insert(id, deleted, update, ChangeType.Update);
-                    return update;
+                        deleted = ReadPrefixedRow("DELETED", reader);
+                        update = ReadPrefixedRow("INSERTED", reader);
+
+                        reader.Close();
+                    }
                 }
+
+                log.Insert(id, deleted, update, ChangeType.Update, connection, transaction);
+                history?.Create(deleted, false, connection, transaction);
+
+                transaction.Commit();
+                return update;
             }
         }
 
@@ -224,23 +239,28 @@ namespace DotJEM.Json.Storage.Adapter
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
+                using (SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted))
                 {
-                    command.CommandText = Commands["Delete"];
-                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
-
-                    //TODO: Transactions (DAMMIT! hoped we could avoid that) - Need to pass the connection around in this case though!.
-                    using (SqlDataReader reader = command.ExecuteReader())
+                    JObject deleted;
+                    using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
                     {
-                        JObject deleted = RunDataReader(reader).SingleOrDefault();
-                        if (deleted == null)
-                            return null;
+                        command.CommandText = Commands["Delete"];
+                        command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
 
-                        log.Insert(guid, deleted, null, ChangeType.Delete);
-
-                        history?.Create(deleted, true);
-                        return deleted;
+                        //TODO: Transactions (DAMMIT! hoped we could avoid that) - Need to pass the connection around in this case though!.
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            deleted = RunDataReader(reader).SingleOrDefault();
+                        }
                     }
+                    if (deleted == null)
+                        return null;
+
+                    log.Insert(guid, deleted, null, ChangeType.Delete, connection, transaction);
+                    history?.Create(deleted, true, connection, transaction);
+
+                    transaction.Commit();
+                    return deleted;
                 }
             }
         }
@@ -287,7 +307,7 @@ namespace DotJEM.Json.Storage.Adapter
             if (migration.Upgrade(ref migrated) && connection != null)
             {
                 string idField = context.Configuration.Fields[JsonField.Id];
-                migrated = InternalUpdate((Guid) entity[idField], migrated, connection);
+                migrated = InternalUpdate((Guid)entity[idField], migrated, connection);
             }
             migrated[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
             return migrated;

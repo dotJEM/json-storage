@@ -109,8 +109,8 @@ namespace DotJEM.Json.Storage.Queries
             self.Delete = vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
 
             //TODO: Requires paging!
-            self.Count = vars.Format("SELECT COUNT_BIG(*) FROM {tableFullName};");
-            self.CountByContentType = vars.Format("SELECT COUNT_BIG(*) FROM {tableFullName} WHERE [{type}] = @{type};");
+            self.Count = vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName};");
+            self.CountByContentType = vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName} WHERE [{type}] = @{type};");
 
             self.SelectAll = vars.Format("SELECT * FROM {tableFullName} ORDER BY [{created}];");
             self.SelectAllByContentType = vars.Format("SELECT * FROM {tableFullName} WHERE [{type}] = @{type} ORDER BY [{created}];");
@@ -289,23 +289,8 @@ namespace DotJEM.Json.Storage.Queries
 
             self.SelectChanges = vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
 
-            self.SelectChangedObjectsDestinct = vars.Format(@"
-                SELECT TOP(5000) {tableFullName}.*, 
-                       (SELECT TOP 1 [Action] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Action], 
-                       (SELECT TOP 1 [Data] FROM {logTableFullName} cli WHERE cli.[{id}] = cl.Token) as [Payload],
-                       cl.Token,
-                       cl.[{fid}]
-                  FROM {tableFullName}
-                  RIGHT JOIN (
-                    SELECT 
-                        MAX([{id}]) as Token, [{fid}] 
-                    FROM {logTableFullName} WHERE [{id}] > @token
-                    GROUP BY [{fid}]) cl ON cl.[{fid}] = {tableFullName}.[{id}]
-                  ORDER BY [Token];
-             ");
-
             self.SelectChangesWithDeletes = vars.Format(@"
-                SELECT TOP(5000)
+                SELECT TOP 5000
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
 	                {tableFullName}.Version, 
@@ -313,28 +298,25 @@ namespace DotJEM.Json.Storage.Queries
 	                {tableFullName}.Created, 
 	                {tableFullName}.Updated, 
 	                {tableFullName}.Data, 
-	                {tableFullName}.RV,
-	
-	                cl.[Action] AS [Action],
-	                cl.[Data] AS [Payload],
-	                cl.Token,
-	                cl.[{fid}]
-                FROM {tableFullName}
 
-	                RIGHT OUTER JOIN (
-		                SELECT clo.Token, clo.[{fid}], clx.Action, clx.Data
-		                FROM (	
-			                SELECT MAX([{id}]) as Token, [{fid}] 
-  			                FROM {logTableFullName} WHERE [{id}] > @token
-			                GROUP BY [{fid}]
-			                 ) clo INNER JOIN {logTableFullName} clx ON clx.Id = clo.Token
-                    ) cl ON cl.[{fid}] = {tableFullName}.[{id}]
 
-                ORDER BY [Token]
+	                changelogdata.[Action] AS [Action],
+	                changelogdata.[Data] AS [Payload],
+	                changelog.[Token],
+	                changelog.[{fid}]
+
+                FROM ( 
+	                SELECT MAX([{id}]) as Token, [{fid}] 
+	                FROM {logTableFullName}
+	                WHERE [{id}] > @token
+	                GROUP BY [{fid}] ) changelog
+
+	                JOIN {logTableFullName} changelogdata ON changelogdata.[{id}] = changelog.Token
+	                LEFT JOIN {tableFullName} ON {tableFullName}.[{id}] = changelog.[{fid}]
             ");
 
             self.SelectChangesNoDeletes = vars.Format(@"
-                SELECT TOP(5000)
+                SELECT TOP 5000
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
 	                {tableFullName}.Version, 
@@ -342,26 +324,23 @@ namespace DotJEM.Json.Storage.Queries
 	                {tableFullName}.Created, 
 	                {tableFullName}.Updated, 
 	                {tableFullName}.Data, 
-	                {tableFullName}.RV,
-	
-	                cl.[Action] AS [Action],
-	                cl.[Data] AS [Payload],
-	                cl.Token,
-	                cl.[{fid}]
-                FROM {tableFullName}
 
-	                RIGHT OUTER JOIN (
-		                SELECT clo.Token, clo.[{fid}], clx.Action, clx.Data
-		                FROM (	
-			                SELECT MAX([{id}]) as Token, [{fid}] 
-  			                FROM {logTableFullName} WHERE [{id}] > @token
-			                GROUP BY [{fid}]
-			                 ) clo INNER JOIN {logTableFullName} clx ON clx.Id = clo.Token
-                    ) cl ON cl.[{fid}] = {tableFullName}.[{id}]
 
+	                changelogdata.[Action] AS [Action],
+	                changelogdata.[Data] AS [Payload],
+	                changelog.[Token],
+	                changelog.[{fid}]
+
+                FROM ( 
+	                SELECT MAX([{id}]) as Token, [{fid}] 
+	                FROM {logTableFullName}
+	                WHERE [{id}] > @token
+	                GROUP BY [{fid}] ) changelog
+
+	                JOIN {logTableFullName} changelogdata ON changelogdata.[{id}] = changelog.Token
+	                LEFT JOIN {tableFullName} ON {tableFullName}.[{id}] = changelog.[{fid}]
+         
                 WHERE Action <> 'Delete'
-
-                ORDER BY [Token]
             ");
 
             self.InsertChange = vars.Format(

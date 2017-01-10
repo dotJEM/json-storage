@@ -15,7 +15,6 @@ namespace DotJEM.Json.Storage.Adapter
 
         IEnumerable<JObject> Get(Guid guid, DateTime? from = null, DateTime? to = null);
         IEnumerable<JObject> GetDeleted(string contentType, DateTime? from = null, DateTime? to = null);
-        void Create(JObject json, bool deleted);
     }
 
     public class SqlServerStorageAreaHistory : IStorageAreaHistory
@@ -90,7 +89,7 @@ namespace DotJEM.Json.Storage.Adapter
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));
         }
 
-        public void Create(JObject json, bool deleted)
+        public void Create(JObject json, bool deleted, SqlConnection connection, SqlTransaction transaction)
         {
             var fields = context.Configuration.Fields;
             Guid guid = json[fields[JsonField.Id]].ToObject<Guid>();
@@ -103,23 +102,19 @@ namespace DotJEM.Json.Storage.Adapter
             json = ExecuteDecorators(json);
 
             EnsureTable();
-
-            using (SqlConnection connection = context.Connection())
+            
+            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction})
             {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    command.CommandText = area.Commands["InsertHistory"];
-                    command.Parameters.Add(new SqlParameter(HistoryField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
-                    command.Parameters.Add(new SqlParameter(StorageField.Reference.ToString(), SqlDbType.BigInt)).Value = Base36.Decode(reference);
-                    command.Parameters.Add(new SqlParameter(StorageField.Version.ToString(), SqlDbType.Int)).Value = version;
-                    command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
-                    command.Parameters.Add(new SqlParameter(HistoryField.Deleted.ToString(), SqlDbType.Bit)).Value = deleted;
-                    command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
-                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updated;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
-                    command.ExecuteNonQuery();
-                }
+                command.CommandText = area.Commands["InsertHistory"];
+                command.Parameters.Add(new SqlParameter(HistoryField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
+                command.Parameters.Add(new SqlParameter(StorageField.Reference.ToString(), SqlDbType.BigInt)).Value = Base36.Decode(reference);
+                command.Parameters.Add(new SqlParameter(StorageField.Version.ToString(), SqlDbType.Int)).Value = version;
+                command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
+                command.Parameters.Add(new SqlParameter(HistoryField.Deleted.ToString(), SqlDbType.Bit)).Value = deleted;
+                command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
+                command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updated;
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(json);
+                command.ExecuteNonQuery();
             }
         }
 

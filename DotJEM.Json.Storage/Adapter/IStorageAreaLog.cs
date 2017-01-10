@@ -138,26 +138,27 @@ namespace DotJEM.Json.Storage.Adapter
             this.context = context;
         }
 
-        public IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action)
+        public IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action, SqlConnection connection, SqlTransaction transaction)
         {
             EnsureTable();
 
-            using (SqlConnection connection = context.Connection())
+            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction =  transaction })
             {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    command.CommandText = area.Commands["InsertChange"];
-                    command.Parameters.Add(new SqlParameter(StorageField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
-                    command.Parameters.Add(new SqlParameter(LogField.Action.ToString(), SqlDbType.VarChar)).Value = action.ToString();
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(Diff(original, changed));
+                command.CommandText = area.Commands["InsertChange"];
+                command.Parameters.Add(new SqlParameter(StorageField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
+                command.Parameters.Add(new SqlParameter(LogField.Action.ToString(), SqlDbType.VarChar)).Value = action.ToString();
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(Diff(original, changed));
 
-                    SqlDataReader reader = command.ExecuteReader();
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
                     reader.Read();
                     long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
+                    reader.Close(); ;
 
                     return new StorageChanges(token, new List<IStorageChange> { new StorageChange(token, action, new Lazy<JObject>(() => changed)) });
+
                 }
+
             }
         }
 
@@ -329,5 +330,6 @@ namespace DotJEM.Json.Storage.Adapter
                 }
             }
         }
+
     }
 }
