@@ -162,11 +162,11 @@ namespace DotJEM.Json.Storage.Stress
 
         public void Execute()
         {
-            Stopwatch timer = Stopwatch.StartNew();
             try
             {
                 while (true)
                 {
+                    Stopwatch timer = Stopwatch.StartNew();
                     IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
 
                     if (tuples.Sum(t => t.Item2.Count.Total) < 1)
@@ -259,15 +259,14 @@ namespace DotJEM.Json.Storage.Stress
             try
             {
                 update();
-                Next();
             }
             catch (Exception ex)
             {
                 log.Write($"Execution of '{Name}' failed.");
                 log.Write(ex);
-
                 // ignored
             }
+            Next();
         }
 
         public void Dispose()

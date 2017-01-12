@@ -59,6 +59,8 @@ namespace DotJEM.Json.Storage.Stress.Logging
             if (disposed)
                 return;
 
+            message = $"{DateTime.Now:s} {message}";
+
             lock (padLock)
             {
                 logQueue.Enqueue(message);
