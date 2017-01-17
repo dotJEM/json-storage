@@ -302,7 +302,6 @@ namespace DotJEM.Json.Storage.Queries
 
 
 	                changelogdata.[Action] AS [Action],
-	                changelogdata.[Data] AS [Payload],
 	                changelog.[Token],
 	                changelog.[{fid}]
 
@@ -328,7 +327,6 @@ namespace DotJEM.Json.Storage.Queries
 
 
 	                changelogdata.[Action] AS [Action],
-	                changelogdata.[Data] AS [Payload],
 	                changelog.[Token],
 	                changelog.[{fid}]
 
@@ -349,33 +347,28 @@ namespace DotJEM.Json.Storage.Queries
                 + "OUTPUT INSERTED.* "
                 + "VALUES( @{fid}, @{action}, @{data} );");
 
-            self.ChangeLogIdIndex = Vars.Format(@"
-                CREATE NONCLUSTERED INDEX [{logTableName}.id_index] ON {logTableFullName}
-                (
-	                [Id] ASC
-                ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-            ");
-
             self.ChangeLogIdFidIndex = Vars.Format(@"
                 CREATE NONCLUSTERED INDEX [{logTableName}.id_fid_index] ON {logTableFullName}
-                (
-	                [Fid] ASC,
-	                [Id] ASC
-                ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-            ");
-
-            self.ChangeLogFidIdIndex = Vars.Format(@"
-                CREATE NONCLUSTERED INDEX [{logTableName}.fid_id_index] ON {logTableFullName}
                 (
 	                [Id] ASC,
 	                [Fid] ASC
                 ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
             ");
 
-            self.ChangeLogActionIndex = Vars.Format(@"
-                CREATE NONCLUSTERED INDEX [{logTableName}.action_index] ON {logTableFullName}
+            self.ChangeLogFidIdActionIndex = Vars.Format(@"
+                CREATE NONCLUSTERED INDEX [{logTableName}.id_fid_action_index] ON {logTableFullName}
                 (
+	                [Id] ASC,
+	                [Fid] ASC,
 	                [Action] ASC
+                ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+            ");
+
+            self.ChangeLogFidIdIndex = Vars.Format(@"
+                CREATE NONCLUSTERED INDEX [{logTableName}.fid_id_index] ON {logTableFullName}
+                (
+	                [Fid] ASC,
+	                [Id] ASC
                 ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
             ");
 

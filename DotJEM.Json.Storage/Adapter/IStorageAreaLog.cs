@@ -302,10 +302,9 @@ namespace DotJEM.Json.Storage.Adapter
 
         private void EnsureIndexes()
         {
-            EnsureIndex($"{area.Name}.changelog.id_index", "ChangeLogIdIndex");
             EnsureIndex($"{area.Name}.changelog.id_fid_index", "ChangeLogIdFidIndex");
+            EnsureIndex($"{area.Name}.changelog.id_fid_action_index", "ChangeLogIdFidActionIndex");
             EnsureIndex($"{area.Name}.changelog.fid_id_index", "ChangeLogFidIdIndex");
-            EnsureIndex($"{area.Name}.changelog.action_index", "ChangeLogActionIndex");
         }
 
         private void EnsureIndex(string name, string commandName)

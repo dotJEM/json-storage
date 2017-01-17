@@ -169,7 +169,8 @@ namespace DotJEM.Json.Storage.Stress
                     Stopwatch timer = Stopwatch.StartNew();
                     IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
 
-                    if (tuples.Sum(t => t.Item2.Count.Total) < 1)
+                    var sum = tuples.Sum(t => t.Item2.Count.Total);
+                    if (sum < 1)
                         return;
 
                     // ReSharper disable ReturnValueOfPureMethodIsNotUsed
@@ -178,7 +179,10 @@ namespace DotJEM.Json.Storage.Stress
                     tuples.Select(WriteChanges).ToArray();
                     // ReSharper restore ReturnValueOfPureMethodIsNotUsed
                     timer.Stop();
-                    Console.WriteLine($"Execution of 'ChangeConsumer' took {timer.ElapsedMilliseconds} ms");
+                    Console.WriteLine($"{DateTime.Now:s} Execution of 'ChangeConsumer' took {timer.ElapsedMilliseconds} ms");
+
+                    if (sum < 5000)
+                        return;
                 }
             }
             catch (Exception ex)
@@ -190,7 +194,7 @@ namespace DotJEM.Json.Storage.Stress
         private long WriteChanges(Tuple<string, IStorageChanges> tuple)
         {
             IStorageChanges changes = tuple.Item2;
-            Console.WriteLine($"{changes.Count}");
+            Console.WriteLine($" -> {changes.Count}");
             return changes.Token;
         }
     }
