@@ -313,6 +313,7 @@ namespace DotJEM.Json.Storage.Queries
 
 	                JOIN {logTableFullName} changelogdata ON changelogdata.[{id}] = changelog.Token
 	                LEFT JOIN {tableFullName} ON {tableFullName}.[{id}] = changelog.[{fid}]
+                ORDER BY Token
             ");
 
             self.SelectChangesNoDeletes = Vars.Format(@"
@@ -340,6 +341,7 @@ namespace DotJEM.Json.Storage.Queries
 	                LEFT JOIN {tableFullName} ON {tableFullName}.[{id}] = changelog.[{fid}]
          
                 WHERE Action <> 'Delete'
+                ORDER BY Token
             ");
 
             self.InsertChange = Vars.Format(
