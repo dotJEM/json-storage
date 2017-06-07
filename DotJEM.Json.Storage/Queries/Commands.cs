@@ -291,7 +291,7 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectChanges = Vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
 
             self.SelectChangesWithDeletes = Vars.Format(@"
-                SELECT TOP 5000
+                SELECT TOP (@count)
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
 	                {tableFullName}.Version, 
@@ -317,7 +317,7 @@ namespace DotJEM.Json.Storage.Queries
             ");
 
             self.SelectChangesNoDeletes = Vars.Format(@"
-                SELECT TOP 5000
+                SELECT TOP (@count)
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
 	                {tableFullName}.Version, 

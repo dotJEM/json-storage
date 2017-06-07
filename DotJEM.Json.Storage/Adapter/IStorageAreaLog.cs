@@ -13,8 +13,8 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
-        IStorageChanges Get(bool includeDeletes = true);
-        IStorageChanges Get(long token, bool includeDeletes = true);
+        IStorageChanges Get(bool includeDeletes = true, int count = 5000);
+        IStorageChanges Get(long token, bool includeDeletes = true, int count = 5000);
     }
 
     public interface IStorageChanges : IEnumerable<IStorageChange>
@@ -256,12 +256,12 @@ namespace DotJEM.Json.Storage.Adapter
             return change;
         }
 
-        public IStorageChanges Get(bool includeDeletes = true)
+        public IStorageChanges Get(bool includeDeletes = true, int count = 5000)
         {
-            return Get(previousToken, includeDeletes);
+            return Get(previousToken, includeDeletes, count);
         }
 
-        public IStorageChanges Get(long token, bool includeDeletes = true)
+        public IStorageChanges Get(long token, bool includeDeletes = true, int count = 5000)
         {
             if (!TableExists)
                 return new StorageChanges(-1, new List<IStorageChange>());
@@ -276,6 +276,7 @@ namespace DotJEM.Json.Storage.Adapter
                         ? area.Commands["SelectChangesWithDeletes"]
                         : area.Commands["SelectChangesNoDeletes"];
                     command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
+                    command.Parameters.Add(new SqlParameter("count", SqlDbType.Int)).Value = count;
 
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
