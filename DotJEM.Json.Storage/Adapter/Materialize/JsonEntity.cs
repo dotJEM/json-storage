@@ -27,7 +27,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize
         private readonly Lazy<JObject> entity;
         private readonly Lazy<string> reference;
 
-        internal JsonEntity(Guid id, string contentType, DateTime created, DateTime updated,
+        public JsonEntity(Guid id, string contentType, DateTime created, DateTime updated,
             long version, long reference, string area, Func<JObject> deserialize)
         {
             this.entity = new Lazy<JObject>(deserialize);

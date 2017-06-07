@@ -14,19 +14,24 @@ namespace DotJEM.Json.Storage
     {
         public byte[] Serialize(JObject json)
         {
-            MemoryStream stream = new MemoryStream();
-            using (BsonWriter writer = new BsonWriter(stream))
+            using (MemoryStream stream = new MemoryStream())
             {
-                json.WriteTo(writer);
+                using (BsonWriter writer = new BsonWriter(stream))
+                {
+                    json.WriteTo(writer);
+                }
+                return stream.ToArray();
             }
-            return stream.ToArray();
         }
 
         public JObject Deserialize(byte[] data)
         {
-            using (BsonReader bson = new BsonReader(new MemoryStream(data)))
+            using (MemoryStream stream = new MemoryStream(data))
             {
-                return (JObject)JToken.ReadFrom(bson);
+                using (BsonReader bson = new BsonReader(stream))
+                {
+                    return (JObject)JToken.ReadFrom(bson);
+                }
             }
         }
     }

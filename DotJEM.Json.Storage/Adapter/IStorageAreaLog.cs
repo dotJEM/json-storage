@@ -233,7 +233,7 @@ namespace DotJEM.Json.Storage.Adapter
                     json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(created, DateTimeKind.Utc);
                     json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(updated, DateTimeKind.Utc);
                     json = area.Migrate(json);
-                    return json;
+                    return json;//new LogEntity(name, contentType, id, reference, version, created, updated, data, context.Serializer.Deserialize);
                 });
             }
             catch (Exception ex)
@@ -244,6 +244,8 @@ namespace DotJEM.Json.Storage.Adapter
                 return new Lazy<JObject>(() => json);
             }
         }
+
+
 
         private JObject Diff(JObject original, JObject changed)
         {
