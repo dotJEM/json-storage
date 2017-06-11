@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter;
+using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -19,7 +20,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             IStorageArea area = context.Area("changelogtest");
 
-            IStorageChanges changes = area.Log.Get(-1);
+            IStorageChangeCollection changes = area.Log.Get(-1);
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
 
@@ -45,8 +46,8 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             JObject inserted = area.Insert("content", create);
             inserted["unique_field"] = Guid.NewGuid();
-            
-            IStorageChanges changes = area.Log.Get(-1);
+
+            IStorageChangeCollection changes = area.Log.Get(-1);
 
             JObject updated = area.Update((Guid)inserted["$id"], inserted);
             changes = area.Log.Get(changes.Token);
@@ -70,7 +71,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             JObject inserted = area.Insert("content", create);
             inserted["unique_field"] = Guid.NewGuid();
 
-            IStorageChanges changes = area.Log.Get(-1);
+            IStorageChangeCollection changes = area.Log.Get(-1);
 
             area.Delete((Guid)inserted["$id"]);
             changes = area.Log.Get(changes.Token);
@@ -94,7 +95,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             JObject inserted = area.Insert("content", create);
             inserted["unique_field"] = Guid.NewGuid();
 
-            IStorageChanges changes = area.Log.Get(-1);
+            IStorageChangeCollection changes = area.Log.Get(-1);
 
             area.Delete((Guid)inserted["$id"]);
             changes = area.Log.Get(changes.Token, false);

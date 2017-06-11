@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Stress.Index;
 using DotJEM.Json.Storage.Stress.Logging;
 using Newtonsoft.Json.Linq;
@@ -167,7 +169,7 @@ namespace DotJEM.Json.Storage.Stress
                 while (true)
                 {
                     Stopwatch timer = Stopwatch.StartNew();
-                    IEnumerable<Tuple<string, IStorageChanges>> tuples = logs.Select(log => new Tuple<string, IStorageChanges>(log.Key, log.Value.Get())).ToList();
+                    IEnumerable<Tuple<string, IStorageChangeCollection>> tuples = logs.Select(log => new Tuple<string, IStorageChangeCollection>(log.Key, log.Value.Get())).ToList();
 
                     var sum = tuples.Sum(t => t.Item2.Count.Total);
                     if (sum < 1)
@@ -191,9 +193,9 @@ namespace DotJEM.Json.Storage.Stress
             }
         }
 
-        private long WriteChanges(Tuple<string, IStorageChanges> tuple)
+        private long WriteChanges(Tuple<string, IStorageChangeCollection> tuple)
         {
-            IStorageChanges changes = tuple.Item2;
+            IStorageChangeCollection changes = tuple.Item2;
             Console.WriteLine($" -> {changes.Count}");
             return changes.Token;
         }

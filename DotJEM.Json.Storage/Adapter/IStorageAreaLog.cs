@@ -5,6 +5,9 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+using DotJEM.Json.Storage.Adapter.Materialize;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
 using Newtonsoft.Json.Linq;
@@ -13,115 +16,8 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
-        IStorageChanges Get(bool includeDeletes = true, int count = 5000);
-        IStorageChanges Get(long token, bool includeDeletes = true, int count = 5000);
-    }
-
-    public interface IStorageChanges : IEnumerable<IStorageChange>
-    {
-        long Token { get; }
-        ChangeCount Count { get; }
-        IEnumerable<JObject> Created { get; }
-        IEnumerable<JObject> Updated { get; }
-        IEnumerable<JObject> Deleted { get; }
-    }
-
-    public struct ChangeCount
-    {
-        public int Total { get { return Created + Updated + Deleted; } }
-
-        public int Created { get; private set; }
-        public int Updated { get; private set; }
-        public int Deleted { get; private set; }
-
-        public ChangeCount(int created, int updated, int deleted)
-            : this()
-        {
-            Created = created;
-            Updated = updated;
-            Deleted = deleted;
-        }
-
-        public static ChangeCount operator +(ChangeCount left, ChangeCount right)
-        {
-            return
-                new ChangeCount()
-                {
-                    Created = left.Created + right.Created,
-                    Updated = left.Updated + right.Updated,
-                    Deleted = left.Deleted + right.Deleted
-                };
-        }
-
-        public static implicit operator int(ChangeCount count)
-        {
-            return count.Total;
-        }
-
-        public override string ToString()
-        {
-            return $"Created: {Created}, Updated: {Updated}, Deleted: {Deleted}";
-        }
-    }
-
-    public class StorageChanges : IStorageChanges
-    {
-        private readonly List<IStorageChange> changes;
-        private readonly ILookup<ChangeType, JObject> changeLookup;
-        private readonly Lazy<ChangeCount> count;
-
-        public long Token { get; }
-        public ChangeCount Count => count.Value;
-        public IEnumerable<JObject> Created => changeLookup[ChangeType.Create];
-        public IEnumerable<JObject> Updated => changeLookup[ChangeType.Update];
-        public IEnumerable<JObject> Deleted => changeLookup[ChangeType.Delete];
-
-        public StorageChanges(long token, List<IStorageChange> changes)
-        {
-            Token = token;
-            this.changes = changes;
-            this.changeLookup = changes.ToLookup(change => change.Type, change => change.Entity);
-            this.count = new Lazy<ChangeCount>(() => new ChangeCount(Created.Count(), Updated.Count(), Deleted.Count()));
-        }
-
-        public IEnumerator<IStorageChange> GetEnumerator()
-        {
-            return changes.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-    }
-
-    public interface IStorageChange
-    {
-        long Token { get; }
-        ChangeType Type { get; }
-        JObject Entity { get; }
-    }
-
-    public class StorageChange : IStorageChange
-    {
-        public long Token { get; }
-        public ChangeType Type { get; }
-        public JObject Entity => entity.Value;
-
-        private readonly Lazy<JObject> entity;
-
-        public StorageChange(long token, ChangeType type, Lazy<JObject> entity)
-        {
-            Token = token;
-            Type = type;
-
-            this.entity = entity;
-        }
-    }
-
-    public enum ChangeType
-    {
-        Create, Update, Delete
+        IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000);
+        IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000);
     }
 
     public class SqlServerStorageAreaLog : IStorageAreaLog
@@ -140,7 +36,7 @@ namespace DotJEM.Json.Storage.Adapter
             this.indexes = new Lazy<Dictionary<string, IndexDefinition>>(() => LoadIndexes().ToDictionary(def => def.Name));
         }
 
-        public IStorageChanges Insert(Guid id, JObject original, JObject changed, ChangeType action, SqlConnection connection, SqlTransaction transaction)
+        public IStorageChangeCollection Insert(Guid id, JObject original, JObject changed, ChangeType action, SqlConnection connection, SqlTransaction transaction)
         {
             EnsureTable();
 
@@ -156,15 +52,17 @@ namespace DotJEM.Json.Storage.Adapter
                     reader.Read();
                     long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
                     reader.Close(); ;
-
-                    return new StorageChanges(token, new List<IStorageChange> { new StorageChange(token, action, new Lazy<JObject>(() => changed)) });
-
+                    
+                    return new StorageChangeCollection(token, new List<Change> {
+                        //TODO: New change type which is already materialized to a JSON object.
+                        new SqlServerInsertedChange(changed, token, action, id)
+                    });
                 }
 
             }
         }
 
-        private StorageChanges RunDataReader(long startToken, SqlDataReader reader)
+        private StorageChangeCollection RunDataReader(long startToken, SqlDataReader reader)
         {
             int tokenColumn = reader.GetOrdinal("Token");
             int actionColumn = reader.GetOrdinal("Action");
@@ -178,95 +76,85 @@ namespace DotJEM.Json.Storage.Adapter
             int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
             int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
 
-            List<IStorageChange> changes = new List<IStorageChange>();
-            long maxToken = startToken;
+            List<Change> changes = new List<Change>();
             while (reader.Read())
             {
                 long token = reader.GetInt64(tokenColumn);
-                maxToken = Math.Max(maxToken, token);
 
                 ChangeType changeType;
                 Enum.TryParse(reader.GetString(actionColumn), out changeType);
 
-                var change = new StorageChange(token, changeType,
-                    changeType != ChangeType.Delete
-                    ? CreateJson(reader, dataColumn, idColumn, refColumn, versionColumn, contentTypeColumn, createdColumn, updatedColumn)
-                    : CreateShell(reader, fidColumn));
-                changes.Add(change);
-            }
-            return new StorageChanges(maxToken, changes);
-        }
-
-        private Lazy<JObject> CreateShell(SqlDataReader reader, int fidColumn)
-        {
-            Guid id = reader.GetGuid(fidColumn);
-            return new Lazy<JObject>(() =>
-            {
-                JObject json = new JObject();
-                json[context.Configuration.Fields[JsonField.Id]] = id;
-                json[context.Configuration.Fields[JsonField.ContentType]] = "Dummy";
-                return json;
-            });
-        }
-
-        private Lazy<JObject> CreateJson(SqlDataReader reader, int dataColumn, int idColumn, int refColumn, int versionColumn, int contentTypeColumn, int createdColumn, int updatedColumn)
-        {
-            try
-            {
-                byte[] data = reader.GetSqlBinary(dataColumn).Value;
-                Guid id = reader.GetGuid(idColumn);
-                long reference = reader.GetInt64(refColumn);
-                string name = area.Name;
-                int version = reader.GetInt32(versionColumn);
-                string contentType = reader.GetString(contentTypeColumn);
-                DateTime created = reader.GetDateTime(createdColumn);
-                DateTime updated = reader.GetDateTime(updatedColumn);
-
-                return new Lazy<JObject>(() =>
+                try
                 {
-                    JObject json = context.Serializer.Deserialize(data);
-                    json[context.Configuration.Fields[JsonField.Id]] = id;
-                    json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reference);
-                    json[context.Configuration.Fields[JsonField.Area]] = name;
-                    json[context.Configuration.Fields[JsonField.Version]] = version;
-                    json[context.Configuration.Fields[JsonField.ContentType]] = contentType;
-                    json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(created, DateTimeKind.Utc);
-                    json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(updated, DateTimeKind.Utc);
-                    json = area.Migrate(json);
-                    return json;//new LogEntity(name, contentType, id, reference, version, created, updated, data, context.Serializer.Deserialize);
-                });
+                    Change change = changeType != ChangeType.Delete
+                        ? (Change)new SqlServerEntityChange(
+                            MaterializeChange,
+                            token,
+                            changeType,
+                            reader.GetGuid(idColumn),
+                            reader.GetString(contentTypeColumn),
+                            area.Name,
+                            reader.GetInt64(refColumn),
+                            reader.GetInt32(versionColumn),
+                            reader.GetDateTime(createdColumn),
+                            reader.GetDateTime(updatedColumn),
+                            reader.GetSqlBinary(dataColumn).Value)
+                        : new SqlServerDeleteChange(MaterializeChange, token, changeType, reader.GetGuid(fidColumn));
+                    changes.Add(change);
+                }
+                catch (Exception exception)
+                {
+                    changes.Add(new FaultyChange(token, changeType, reader.GetGuid(fidColumn), exception));
+                }
             }
-            catch (Exception ex)
+            if (changes.Any())
             {
-                //TODO: (jmd 2015-10-01) This is a horrible way around it, will get fixed when we have better materialization. 
-                var json = new JObject();
-                json["$exception"] = ex.ToString();
-                return new Lazy<JObject>(() => json);
+                return new StorageChangeCollection(changes.Last().Token, changes);
             }
+            return new StorageChangeCollection(startToken, changes);
         }
 
+        private JObject MaterializeChange(SqlServerEntityChange arg)
+        {
+            JObject json = context.Serializer.Deserialize(arg.Data);
+            json[context.Configuration.Fields[JsonField.Id]] = arg.Id;
+            json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(arg.Reference);
+            json[context.Configuration.Fields[JsonField.Area]] = arg.Area;
+            json[context.Configuration.Fields[JsonField.Version]] = arg.Version;
+            json[context.Configuration.Fields[JsonField.ContentType]] = arg.ContentType;
+            json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(arg.Created, DateTimeKind.Utc);
+            json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(arg.Updated, DateTimeKind.Utc);
+            json = area.Migrate(json);
+            return json;
+        }
 
+        private JObject MaterializeChange(SqlServerDeleteChange arg)
+        {
+            JObject json = new JObject();
+            json[context.Configuration.Fields[JsonField.Id]] = arg.Id;
+            json[context.Configuration.Fields[JsonField.ContentType]] = "Dummy";
+            return json;
+        }
 
         private JObject Diff(JObject original, JObject changed)
         {
             JObject either = original ?? changed;
             JObject change = new JObject();
             change[context.Configuration.Fields[JsonField.ContentType]] = either[context.Configuration.Fields[JsonField.ContentType]];
-
             //TODO: Implemnt simple diff (record changed properties)
             //      - Could also use this for change details...
             return change;
         }
 
-        public IStorageChanges Get(bool includeDeletes = true, int count = 5000)
+        public IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000)
         {
             return Get(previousToken, includeDeletes, count);
         }
 
-        public IStorageChanges Get(long token, bool includeDeletes = true, int count = 5000)
+        public IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000)
         {
             if (!TableExists)
-                return new StorageChanges(-1, new List<IStorageChange>());
+                return new StorageChangeCollection(-1, new List<Change>());
 
             using (SqlConnection connection = context.Connection())
             {
@@ -282,7 +170,7 @@ namespace DotJEM.Json.Storage.Adapter
 
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        StorageChanges changes = RunDataReader(token, reader);
+                        StorageChangeCollection changes = RunDataReader(token, reader);
                         previousToken = changes.Token;
                         return changes;
                     }

@@ -16,7 +16,7 @@ namespace DotJEM.Json.Storage
         {
             using (MemoryStream stream = new MemoryStream())
             {
-                using (BsonWriter writer = new BsonWriter(stream))
+                using (BsonDataWriter writer = new BsonDataWriter(stream))
                 {
                     json.WriteTo(writer);
                 }
@@ -26,9 +26,11 @@ namespace DotJEM.Json.Storage
 
         public JObject Deserialize(byte[] data)
         {
+            if (data.Length == 0)
+                return null;
             using (MemoryStream stream = new MemoryStream(data))
             {
-                using (BsonReader bson = new BsonReader(stream))
+                using (BsonDataReader bson = new BsonDataReader(stream))
                 {
                     return (JObject)JToken.ReadFrom(bson);
                 }

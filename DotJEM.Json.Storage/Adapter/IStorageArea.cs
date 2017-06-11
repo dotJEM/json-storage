@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
 using DotJEM.Json.Storage.Queries;
