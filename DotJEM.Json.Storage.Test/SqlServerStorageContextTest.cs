@@ -27,7 +27,7 @@ namespace DotJEM.Json.Storage.Test
 
             IStorageArea area = context.Area("test");
 
-            Enumerable.Range(0, 100).AsParallel().Select(number =>
+            Enumerable.Range(0, 100)./*AsParallel().*/Select(number =>
             {
                 GetValue(contentType, area);
                 return number;
