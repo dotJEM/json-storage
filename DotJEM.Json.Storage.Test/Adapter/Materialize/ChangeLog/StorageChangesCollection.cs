@@ -15,7 +15,7 @@ namespace DotJEM.Json.Storage.Test.Adapter.Materialize.ChangeLog
         [Test]
         public void Partitioned_ReturnsChangesPartitionedIntoCreateUpdateDelete()
         {
-            IStorageChangeCollection changes = new StorageChangeCollection(0, new List<Change>()
+            IStorageChangeCollection changes = new StorageChangeCollection("N/A", 0, new List<Change>()
             {
                 new DummyChange(00, ChangeType.Update, Guid.Empty), // 00 -> i=5
                 new DummyChange(01, ChangeType.Create, Guid.Empty), // 01 -> i=0

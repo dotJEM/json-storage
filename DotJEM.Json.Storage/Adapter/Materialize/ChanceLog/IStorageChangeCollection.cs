@@ -1,16 +1,21 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.Log;
 
-namespace DotJEM.Json.Storage.Adapter.Materialize.Log
+namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
 {
-
-
+    /// <summary>
+    /// Provides a set of changes occured within a <see cref="IStorageArea"/>, this can be usefull to use for notifications etc.
+    /// </summary>
     public interface IStorageChangeCollection : IEnumerable<Change>
     {
+        /// <summary>
+        /// Gets the name of the <see cref="IStorageArea"/> from where the changes came.
+        /// </summary>
+        string StorageArea { get; }
+
         /// <summary>
         /// Gets the last token in the collection, this can be used to acquire the next batch.
         /// This is also the same token that is automatically used if no token is provided.
@@ -51,14 +56,16 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.Log
         private readonly List<Change> changes;
         private readonly Change[] partitions;
         public IEnumerable<Change> Partitioned => new ReadOnlyCollection<Change>(partitions);
+        public string StorageArea { get; }
         public long Token { get; }
         public ChangeCount Count { get; }
         public IEnumerable<Change> Created { get; }
         public IEnumerable<Change> Updated { get; }
         public IEnumerable<Change> Deleted { get; }
 
-        public StorageChangeCollection(long token, List<Change> changes)
+        public StorageChangeCollection(string storageArea, long token, List<Change> changes)
         {
+            StorageArea = storageArea;
             Token = token;
             this.changes = changes;
 

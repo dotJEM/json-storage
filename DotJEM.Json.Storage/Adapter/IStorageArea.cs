@@ -72,6 +72,7 @@ namespace DotJEM.Json.Storage.Adapter
                 Commands = new SqlServerCommandFactory(conn.Database, name);
             }
 
+            //TODO: Changelog should be optional just like history.
             log = new SqlServerStorageAreaLog(this, context);
 
             // ReSharper disable once AssignmentInConditionalExpression

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
 using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
 using Newtonsoft.Json.Linq;

@@ -53,7 +53,7 @@ namespace DotJEM.Json.Storage.Adapter
                     long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
                     reader.Close(); ;
                     
-                    return new StorageChangeCollection(token, new List<Change> {
+                    return new StorageChangeCollection(area.Name, token, new List<Change> {
                         //TODO: New change type which is already materialized to a JSON object.
                         new SqlServerInsertedChange(changed, token, action, id)
                     });
@@ -109,9 +109,9 @@ namespace DotJEM.Json.Storage.Adapter
             }
             if (changes.Any())
             {
-                return new StorageChangeCollection(changes.Last().Token, changes);
+                return new StorageChangeCollection(area.Name, changes.Last().Token, changes);
             }
-            return new StorageChangeCollection(startToken, changes);
+            return new StorageChangeCollection(area.Name, startToken, changes);
         }
 
         private JObject MaterializeChange(SqlServerEntityChange arg)
@@ -154,7 +154,7 @@ namespace DotJEM.Json.Storage.Adapter
         public IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000)
         {
             if (!TableExists)
-                return new StorageChangeCollection(-1, new List<Change>());
+                return new StorageChangeCollection(area.Name, -1, new List<Change>());
 
             using (SqlConnection connection = context.Connection())
             {
