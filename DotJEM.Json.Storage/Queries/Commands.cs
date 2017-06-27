@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Dynamic;
+using System.Linq;
 using DotJEM.Json.Storage.Util;
 
 namespace DotJEM.Json.Storage.Queries
@@ -114,7 +116,11 @@ namespace DotJEM.Json.Storage.Queries
             self.CountByContentType = Vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName} WHERE [{type}] = @{type};");
 
             self.SelectAll = Vars.Format("SELECT * FROM {tableFullName} ORDER BY [{created}];");
+            //TODO: This requires a better aproach as it puts responsibility of constructing queries outside of the Commands class (which is a horrible class anyways).
+            self.SelectAllByGuids = Vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] IN ( $$$INS$$$ ) ORDER BY [{created}];");
+
             self.SelectAllByContentType = Vars.Format("SELECT * FROM {tableFullName} WHERE [{type}] = @{type} ORDER BY [{created}];");
+
             self.SelectSingle = Vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
 
             self.SelectAllPaged = Vars.Format(@"

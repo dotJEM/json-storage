@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Text;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
 using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
@@ -23,6 +24,7 @@ namespace DotJEM.Json.Storage.Adapter
         IEnumerable<JObject> Get(long rowindex, int count = 100);
         IEnumerable<JObject> Get(string contentType);
         IEnumerable<JObject> Get(string contentType, long rowindex, int count = 100);
+        IEnumerable<JObject> Get(IEnumerable<Guid> guids);
         JObject Get(Guid guid);
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
@@ -85,12 +87,12 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IEnumerable<JObject> Get()
         {
-            return InternalGet("SelectAll");
+            return InternalGet(Commands["SelectAll"]);
         }
 
         public IEnumerable<JObject> Get(long rowindex, int count = 100)
         {
-            return InternalGet("SelectAllPaged",
+            return InternalGet(Commands["SelectAllPaged"],
                 new SqlParameter("rowstart", rowindex),
                 new SqlParameter("rowend", rowindex + count)
                 );
@@ -101,7 +103,7 @@ namespace DotJEM.Json.Storage.Adapter
             if (contentType == null)
                 throw new ArgumentNullException(nameof(contentType));
 
-            return InternalGet("SelectAllByContentType",
+            return InternalGet(Commands["SelectAllByContentType"],
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));
         }
 
@@ -110,19 +112,32 @@ namespace DotJEM.Json.Storage.Adapter
             if (contentType == null)
                 throw new ArgumentNullException(nameof(contentType));
 
-            return InternalGet("SelectAllPagedByContentType",
+            return InternalGet(Commands["SelectAllPagedByContentType"],
                 new SqlParameter(StorageField.ContentType.ToString(), contentType),
                 new SqlParameter("rowstart", rowindex),
                 new SqlParameter("rowend", rowindex + count));
         }
 
-
-
         public JObject Get(Guid guid)
         {
-            return InternalGet("SelectSingle",
+            return InternalGet(Commands["SelectSingle"],
                 new SqlParameter(StorageField.Id.ToString(), guid))
                 .SingleOrDefault();
+        }
+
+        public IEnumerable<JObject> Get(IEnumerable<Guid> guids)
+        {
+            string commandText = Commands["SelectAllByGuids"];
+            Dictionary<string, SqlParameter> map = guids.Select((guid, i) =>
+            {
+                string name = "@P_" + i;
+                return new {name, param = new SqlParameter(name, guid)};
+            }).ToDictionary(a => a.name, a => a.param);
+
+            commandText = commandText.Replace("$$$INS$$$", string.Join(",", map.Keys));
+            return InternalGet(
+                commandText, //commandText.Replace("$$$INS$$$", string.Join(",", map.Keys)), 
+                map.Values.ToArray());
         }
 
         public JObject Insert(string contentType, JObject json)
@@ -234,7 +249,6 @@ namespace DotJEM.Json.Storage.Adapter
                 return update;
             }
         }
-
         public JObject Delete(Guid guid)
         {
             EnsureTable();
@@ -268,24 +282,24 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
-        private IEnumerable<JObject> InternalGet(string cmd, params SqlParameter[] parameters)
+        private IEnumerable<JObject> InternalGet(string commandText, params SqlParameter[] parameters)
         {
             EnsureTable();
 
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                List<JObject> entities = GetEntities(cmd, parameters, connection);
+                List<JObject> entities = GetEntities(commandText, parameters, connection);
                 // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
                 entities = MigrateEntities(entities, connection);
                 return entities;
             }
         }
 
-        private List<JObject> GetEntities(string cmd, SqlParameter[] parameters, SqlConnection connection)
+        private List<JObject> GetEntities(string commandText, SqlParameter[] parameters, SqlConnection connection)
         {
             List<JObject> entities = new List<JObject>();
-            using (SqlCommand command = new SqlCommand(Commands[cmd], connection))
+            using (SqlCommand command = new SqlCommand(commandText, connection))
             {
                 command.CommandTimeout = context.Configuration.ReadCommandTimeout;
                 command.Parameters.AddRange(parameters);

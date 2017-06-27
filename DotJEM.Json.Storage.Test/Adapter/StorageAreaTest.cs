@@ -164,5 +164,25 @@ namespace DotJEM.Json.Storage.Test.Adapter
             for (int i = 1; i < 101; i++) area.Insert("fiz", JObject.FromObject(new { i, text = "Just an item" }));
             Assert.That(area.Count(), Is.EqualTo(countBefore+100));
         }
+
+        [Test]
+        public void Get_ListOfIds_ReturnsObjects()
+        {
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+            IStorageArea area = context.Area("pagingtest");
+
+            List<Guid> ids = new List<Guid>();
+            for (int i = 1; i < 100; i++)
+            {
+                Guid id = (Guid) area.Insert("loi", JObject.FromObject(new { i, text = "Just an item" }))["$id"];
+                if (i % 3 == 0)
+                    ids.Add(id);
+            }
+
+            List<JObject> entities = area.Get(ids).ToList();
+
+            Assert.That(entities, Has.Count.EqualTo(33));
+
+        }
     }
 }
