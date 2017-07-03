@@ -178,13 +178,14 @@ namespace DotJEM.Json.Storage.Adapter
             if (!TableExists)
                 return new StorageChangeCollection(area.Name, -1, new List<Change>());
 
+            //Note: If the requested token is greater than the current generation, we fetch the latest generation.
+            //      This ensures that the generation actually exists so that we don't skip future generation.
+            if (token > previousToken)
+                previousToken = Math.Min(token, LatestGeneration);
+            previousToken = token;
+
             if (count < 1)
             {
-                //Note: If the requested token is greater than the current generation, we fetch the latest generation.
-                //      This ensures that the generation actually exists so that we don't skip future generation.
-                if (token > previousToken)
-                    previousToken = Math.Min(token, LatestGeneration);
-
                 return new StorageChangeCollection(area.Name, previousToken, new List<Change>());
             }
 
