@@ -16,6 +16,7 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
+        long Generation { get; }
         IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000);
         IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000);
     }
@@ -27,6 +28,8 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly SqlServerStorageArea area;
         private readonly SqlServerStorageContext context;
         private readonly object padlock = new object();
+
+        public long Generation => previousToken;
 
         public SqlServerStorageAreaLog(SqlServerStorageArea area, SqlServerStorageContext context)
         {

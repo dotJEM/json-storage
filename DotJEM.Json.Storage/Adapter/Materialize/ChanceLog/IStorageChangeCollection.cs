@@ -49,6 +49,8 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         /// Gets all changes that was deletions of objects.
         /// </summary>
         IEnumerable<Change> Deleted { get; }
+
+
     }
 
     public class StorageChangeCollection : IStorageChangeCollection
@@ -92,13 +94,15 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
             cursor[(int)ChangeType.Delete] = count[(int)ChangeType.Create]+count[(int)ChangeType.Update];
             foreach (Change change in changes)
             {
-                var i = cursor[(int) change.Type]++;
+                int i = cursor[(int) change.Type]++;
                 partitions[i] = change;
             }
 
             Created = ArrayPartition.Create(partitions, 0, count[(int)ChangeType.Create]);
             Updated = ArrayPartition.Create(partitions, cursor[(int) ChangeType.Create], count[(int) ChangeType.Update]);
             Deleted = ArrayPartition.Create(partitions, cursor[(int)ChangeType.Update], count[(int)ChangeType.Delete]);
+
+
         }
 
         public IEnumerator<Change> GetEnumerator() => changes.GetEnumerator();
