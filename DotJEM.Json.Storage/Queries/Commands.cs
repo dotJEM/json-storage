@@ -295,6 +295,7 @@ namespace DotJEM.Json.Storage.Queries
                                  AND TABLE_NAME = '{logTableName}'");
 
             self.SelectChanges = Vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
+            self.SelectMaxGeneration = Vars.Format("SELECT MAX([{id}]) FROM {logTableFullName}");
 
             self.SelectChangesWithDeletes = Vars.Format(@"
                 SELECT TOP (@count)

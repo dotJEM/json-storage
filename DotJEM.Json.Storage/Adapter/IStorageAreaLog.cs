@@ -17,6 +17,8 @@ namespace DotJEM.Json.Storage.Adapter
     public interface IStorageAreaLog
     {
         long Generation { get; }
+        long LatestGeneration { get; }
+
         IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000);
         IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000);
     }
@@ -30,6 +32,23 @@ namespace DotJEM.Json.Storage.Adapter
         private readonly object padlock = new object();
 
         public long Generation => previousToken;
+
+        public long LatestGeneration
+        {
+            get
+            {
+                using (SqlConnection connection = context.Connection())
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand { Connection = connection })
+                    {
+                        command.CommandTimeout = context.Configuration.ReadCommandTimeout;
+                        command.CommandText = area.Commands["SelectMaxGeneration"];
+                        return (long)command.ExecuteScalar();
+                    }
+                }
+            }
+        }
 
         public SqlServerStorageAreaLog(SqlServerStorageArea area, SqlServerStorageContext context)
         {
@@ -158,6 +177,16 @@ namespace DotJEM.Json.Storage.Adapter
         {
             if (!TableExists)
                 return new StorageChangeCollection(area.Name, -1, new List<Change>());
+
+            if (count < 1)
+            {
+                //Note: If the requested token is greater than the current generation, we fetch the latest generation.
+                //      This ensures that the generation actually exists so that we don't skip future generation.
+                if (token > previousToken)
+                    previousToken = Math.Min(token, LatestGeneration);
+
+                return new StorageChangeCollection(area.Name, previousToken, new List<Change>());
+            }
 
             using (SqlConnection connection = context.Connection())
             {
@@ -292,8 +321,6 @@ namespace DotJEM.Json.Storage.Adapter
                 }
             }
         }
-
-
 
         private class IndexDefinition
         {

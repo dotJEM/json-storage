@@ -182,7 +182,6 @@ namespace DotJEM.Json.Storage.Test.Adapter
             List<JObject> entities = area.Get(ids).ToList();
 
             Assert.That(entities, Has.Count.EqualTo(33));
-
         }
     }
 }
