@@ -59,6 +59,7 @@
   <ItemGroup>
     <Compile Include="Adapter\Materialize\ChangeLog\StorageChangesCollection.cs" />
     <Compile Include="Adapter\StorageAreaHistoryTest.cs" />
+    <Compile Include="Adapter\StorageAreaLogTest.cs" />
     <Compile Include="Adapter\StorageAreaTest.cs" />
     <Compile Include="Linq\StorageAreaQueryableProviderTest.cs" />
     <Compile Include="Migration\Collection\SortedPartitionLookupTest.cs" />
