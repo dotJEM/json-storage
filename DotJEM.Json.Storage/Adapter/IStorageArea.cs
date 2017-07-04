@@ -127,6 +127,9 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IEnumerable<JObject> Get(IEnumerable<Guid> guids)
         {
+            //TODO: In the case that we have to many we should devide the query into multiple or run with temp tables instead.
+            //      http://sqlmag.com/t-sql/using-fake-temporary-tables
+
             string commandText = Commands["SelectAllByGuids"];
             Dictionary<string, SqlParameter> map = guids.Select((guid, i) =>
             {
