@@ -11,20 +11,19 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.Log
     public class ArrayPartition<T> : IEnumerable<T>
     {
         private readonly int start;
-        private readonly int count;
+        private readonly int stop;
         private readonly T[] source;
 
         public ArrayPartition(T[] source, int start, int count)
         {
             this.start = start;
-            this.count = count;
+            this.stop = count + start;
             this.source = source;
         }
 
         public IEnumerator<T> GetEnumerator()
         {
-            int max = count + start;
-            for (int i = start; i < max; i++)
+            for (int i = start; i < stop; i++)
                 yield return source[i];
         }
 

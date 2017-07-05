@@ -8,7 +8,7 @@
     <owners>jeme</owners>
     <licenseUrl>https://github.com/dotJEM/json-storage/blob/master/LICENSE</licenseUrl>
     <projectUrl>https://github.com/dotJEM/json-storage</projectUrl>
-    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
     <releaseNotes>https://github.com/dotJEM/json-storage/releases</releaseNotes>
     <copyright>Copyright 2015</copyright>

@@ -17,8 +17,6 @@ namespace DotJEM.Json.Storage.Test.Adapter.Materialize.ChangeLog
         public void Count_RandomData_MatchesItems()
         {
             IStorageChangeCollection changes = new StorageChangeCollection("N/A", 0, new List<Change>(new FakeChangeFactory().Random(100)));
-
-
             Assert.That(changes.Count, Is.EqualTo(new ChangeCount(changes.Created.Count(), changes.Updated.Count(), changes.Deleted.Count())));
         }
 

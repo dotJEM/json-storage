@@ -102,5 +102,29 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             Assert.That(changes.Count(), Is.EqualTo(0));
         }
+
+        [Test]
+        public void Get_MixedUpdates_ReturnsAll()
+        {
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+            IStorageArea area = context.Area("changelogtest");
+
+            JObject template = JObject.Parse("{ name: 'Dymmy', count: 10 }");
+
+            IStorageChangeCollection changes = area.Log.Get();
+            Guid id1 = (Guid)area.Insert("content", template)["$id"];
+            Guid id2 = (Guid)area.Insert("content", template)["$id"];
+            Guid id3 = (Guid)area.Insert("content", template)["$id"];
+            area.Update(id1, template);
+            area.Delete(id2);
+
+            changes = area.Log.Get();
+
+            Assert.That(changes.Count, Is.EqualTo(new ChangeCount(1,1,1)));
+            Assert.That(changes.Created.Count(), Is.EqualTo(1));
+            Assert.That(changes.Updated.Count(), Is.EqualTo(1));
+            Assert.That(changes.Deleted.Count(), Is.EqualTo(1));
+
+        }
     }
 }
