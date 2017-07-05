@@ -8,7 +8,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
 {
     public enum ChangeType
     {
-        Create, Update, Delete, Fault
+        Create, Update, Delete
     }
 
     /// <summary>
