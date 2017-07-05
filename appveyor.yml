@@ -6,7 +6,8 @@ environment:
   appveyor_sqlconnection: 'Server=.\SQL2014;Database=json;User ID=sa;Password=Password12!'
 
 init:
-- ps: Update-AppveyorBuild -Version "0.1.$env:appveyor_build_number-sha.$($env:appveyor_repo_commit.substring(0,7))"
+- ps: $env:nuget_ver=$env:appveyor_build_version
+- ps: Update-AppveyorBuild -Version "$env:appveyor_build_version-sha.$($env:appveyor_repo_commit.substring(0,7))"
 
 nuget:
   disable_publish_on_pr: true
@@ -17,8 +18,8 @@ services:
 assembly_info:
   patch: true
   file: AssemblyInfo.*
-  assembly_version: '0.1.{build}'
-  assembly_file_version: '0.1.{build}'
+  assembly_version: $(nuget_ver)
+  assembly_file_version: $(nuget_ver)
   assembly_informational_version: '{version}'
 
 matrix:
