@@ -20,7 +20,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         /// Gets the last token in the collection, this can be used to acquire the next batch.
         /// This is also the same token that is automatically used if no token is provided.
         /// </summary>
-        long Token { get; }
+        long Generation { get; }
 
         /// <summary>
         /// Gets the number of changes in the current change collection, the count object
@@ -49,8 +49,6 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         /// Gets all changes that was deletions of objects.
         /// </summary>
         IEnumerable<Change> Deleted { get; }
-
-
     }
 
     public class StorageChangeCollection : IStorageChangeCollection
@@ -59,16 +57,16 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         private readonly Change[] partitions;
         public IEnumerable<Change> Partitioned => new ReadOnlyCollection<Change>(partitions);
         public string StorageArea { get; }
-        public long Token { get; }
+        public long Generation { get; }
         public ChangeCount Count { get; }
         public IEnumerable<Change> Created { get; }
         public IEnumerable<Change> Updated { get; }
         public IEnumerable<Change> Deleted { get; }
 
-        public StorageChangeCollection(string storageArea, long token, List<Change> changes)
+        public StorageChangeCollection(string storageArea, long generation, List<Change> changes)
         {
             StorageArea = storageArea;
-            Token = token;
+            Generation = generation;
             this.changes = changes;
 
             //Note: This is basically sorting the changes based on type, but there is a few things to note here:
@@ -101,12 +99,16 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
             Created = ArrayPartition.Create(partitions, 0, count[(int)ChangeType.Create]);
             Updated = ArrayPartition.Create(partitions, cursor[(int) ChangeType.Create], count[(int) ChangeType.Update]);
             Deleted = ArrayPartition.Create(partitions, cursor[(int)ChangeType.Update], count[(int)ChangeType.Delete]);
-
-
         }
 
         public IEnumerator<Change> GetEnumerator() => changes.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public override string ToString()
+        {
+            //return $"Created: {Created}, Updated: {Updated}, Deleted: {Deleted}";
+            return $"[GEN:{Generation}] {Count} from {StorageArea}";
+        }
     }
 
 

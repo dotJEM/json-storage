@@ -8,7 +8,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
 {
     public enum ChangeType
     {
-        Create, Update, Delete
+        Create, Update, Delete, Fault
     }
 
     /// <summary>
@@ -18,16 +18,16 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
     {
         private JObject cached;
 
-        public long Token { get; }
+        public long Generation { get; }
         public ChangeType Type { get; }
         public Guid Id { get; }
         public JObject Entity => cached ?? (cached = CreateEntity());
 
         public abstract int Size { get; }
 
-        protected Change(long token, ChangeType type, Guid id)
+        protected Change(long generation, ChangeType type, Guid id)
         {
-            Token = token;
+            Generation = generation;
             Type = type;
             Id = id;
         }
@@ -46,7 +46,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         private readonly JObject changed;
         public override int Size => 0;
 
-        public SqlServerInsertedChange(JObject changed, long token, ChangeType type, Guid id) : base(token, type, id)
+        public SqlServerInsertedChange(JObject changed, long generation, ChangeType type, Guid id) : base(generation, type, id)
         {
             this.changed = changed;
         }
@@ -69,8 +69,8 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
 
         public override int Size => Data.Length;
 
-        public SqlServerEntityChange(Func<SqlServerEntityChange, JObject> fac, long token, ChangeType type, Guid id, string contentType, string area, long reference, int version, DateTime created, DateTime updated, byte[] data)
-            : base(token, type, id)
+        public SqlServerEntityChange(Func<SqlServerEntityChange, JObject> fac, long generation, ChangeType type, Guid id, string contentType, string area, long reference, int version, DateTime created, DateTime updated, byte[] data)
+            : base(generation, type, id)
         {
             this.fac = fac;
             ContentType = contentType;
@@ -91,8 +91,8 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         private readonly Func<SqlServerDeleteChange, JObject> fac;
         public override int Size => 0;
 
-        public SqlServerDeleteChange(Func<SqlServerDeleteChange, JObject> fac,long token, ChangeType type, Guid id)
-            : base(token, type, id)
+        public SqlServerDeleteChange(Func<SqlServerDeleteChange, JObject> fac,long generation, ChangeType type, Guid id)
+            : base(generation, type, id)
         {
             this.fac = fac;
         }
@@ -100,7 +100,6 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         public override JObject CreateEntity() => fac(this);
 
         public override JsonReader OpenReader() => new JTokenReader(CreateEntity());
-
     }
 
     public sealed class FaultyChange : Change
@@ -108,8 +107,8 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         private readonly Exception exception;
         public override int Size => 0;
 
-        public FaultyChange(long token, ChangeType type, Guid id, Exception exception)
-            : base(token, type, id)
+        public FaultyChange(long generation, ChangeType type, Guid id, Exception exception)
+            : base(generation, type, id)
         {
             this.exception = exception;
         }

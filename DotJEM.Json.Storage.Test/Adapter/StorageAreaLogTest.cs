@@ -26,7 +26,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             JObject inserted = area.Insert("content", create);
 
-            changes = area.Log.Get(changes.Token);
+            changes = area.Log.Get(changes.Generation);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Created.Count(), Is.EqualTo(1));
@@ -50,7 +50,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             IStorageChangeCollection changes = area.Log.Get(-1);
 
             JObject updated = area.Update((Guid)inserted["$id"], inserted);
-            changes = area.Log.Get(changes.Token);
+            changes = area.Log.Get(changes.Generation);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Updated.Count(), Is.EqualTo(1));
@@ -74,7 +74,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             IStorageChangeCollection changes = area.Log.Get(-1);
 
             area.Delete((Guid)inserted["$id"]);
-            changes = area.Log.Get(changes.Token);
+            changes = area.Log.Get(changes.Generation);
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Deleted.Count(), Is.EqualTo(1));
@@ -98,7 +98,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
             IStorageChangeCollection changes = area.Log.Get(-1);
 
             area.Delete((Guid)inserted["$id"]);
-            changes = area.Log.Get(changes.Token, false);
+            changes = area.Log.Get(changes.Generation, false);
 
             Assert.That(changes.Count(), Is.EqualTo(0));
         }

@@ -34,14 +34,14 @@ namespace DotJEM.Json.Storage.Test.Adapter.Materialize.ChangeLog
                 new DummyChange(14, ChangeType.Delete, Guid.Empty), // 14 -> i=14
             });
 
-            Assert.That(string.Join(":",changes.Partitioned.Select(change => change.Token.ToString("D2"))),
+            Assert.That(string.Join(":",changes.Partitioned.Select(change => change.Generation.ToString("D2"))),
                 Is.EqualTo("01:05:07:11:12:00:02:04:09:13:03:06:08:10:14"));
 
         }
 
         public class DummyChange : Change {
             public override int Size { get; }
-            public DummyChange(long token, ChangeType type, Guid id) : base(token, type, id)
+            public DummyChange(long generation, ChangeType type, Guid id) : base(generation, type, id)
             {
             }
 

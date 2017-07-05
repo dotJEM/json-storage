@@ -197,7 +197,7 @@ namespace DotJEM.Json.Storage.Stress
         {
             IStorageChangeCollection changes = tuple.Item2;
             Console.WriteLine($" -> {changes.Count}");
-            return changes.Token;
+            return changes.Generation;
         }
     }
 

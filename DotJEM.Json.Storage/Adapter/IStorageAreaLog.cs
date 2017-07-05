@@ -16,22 +16,51 @@ namespace DotJEM.Json.Storage.Adapter
 {
     public interface IStorageAreaLog
     {
-        long Generation { get; }
+        /// <summary>
+        /// Gets the latest generation returned by this changelog.
+        /// </summary>
+        long CurrentGeneration { get; }
+
+        /// <summary>
+        /// Gets the latest generation stored in the database.
+        /// </summary>
         long LatestGeneration { get; }
 
+        /// <summary>
+        /// Gets the next batch of changes.
+        /// </summary>
+        /// <remarks>
+        /// Use this method to continiously pool for changed documents in the storage area while letting the <see cref="IStorageAreaLog"/> track which generation was returned last.
+        /// </remarks>
+        /// <param name="includeDeletes">If <code>true</code>, returns all types of changes; If <code>false</code>, it skips deletes.</param>
+        /// <param name="count">The maximum number of changes to return.</param>
+        /// <returns>A <see cref="IStorageChangeCollection"/> with changes since <see cref="CurrentGeneration"/></returns>
         IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000);
-        IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000);
+
+        /// <summary>
+        /// Gets a batch of changes from the provided <see cref="generation"/>.
+        /// </summary>
+        /// <remarks>
+        /// Use this method to continiously pool for changed documents in the storage area while taking over tracking of the last returned generation.
+        /// <strong>Note:</strong>If <see cref="count"/> is less than <code>1</code>, then this method will just reset <see cref="CurrentGeneration"/> to
+        /// the <see cref="generation"/> provided unless the <see cref="generation"/> provided is greater than <see cref="LatestGeneration"/>, in which case
+        /// <see cref="CurrentGeneration"/> is set to <see cref="LatestGeneration"/>.
+        /// </remarks>
+        /// <param name="generation">The generation to start from.</param>
+        /// <param name="includeDeletes">If <code>true</code>, returns all types of changes; If <code>false</code>, it skips deletes.</param>
+        /// <param name="count">The maximum number of changes to return.</param>
+        /// <returns></returns>
+        IStorageChangeCollection Get(long generation, bool includeDeletes = true, int count = 5000);
     }
 
     public class SqlServerStorageAreaLog : IStorageAreaLog
     {
         private bool initialized;
-        private long previousToken = -1;
         private readonly SqlServerStorageArea area;
         private readonly SqlServerStorageContext context;
         private readonly object padlock = new object();
 
-        public long Generation => previousToken;
+        public long CurrentGeneration { get; private set; } = -1;
 
         public long LatestGeneration
         {
@@ -84,7 +113,7 @@ namespace DotJEM.Json.Storage.Adapter
             }
         }
 
-        private StorageChangeCollection RunDataReader(long startToken, SqlDataReader reader)
+        private StorageChangeCollection RunDataReader(long startGeneration, SqlDataReader reader)
         {
             int tokenColumn = reader.GetOrdinal("Token");
             int actionColumn = reader.GetOrdinal("Action");
@@ -101,7 +130,7 @@ namespace DotJEM.Json.Storage.Adapter
             List<Change> changes = new List<Change>();
             while (reader.Read())
             {
-                long token = reader.GetInt64(tokenColumn);
+                long generation = reader.GetInt64(tokenColumn);
 
                 ChangeType changeType;
                 Enum.TryParse(reader.GetString(actionColumn), out changeType);
@@ -111,7 +140,7 @@ namespace DotJEM.Json.Storage.Adapter
                     Change change = changeType != ChangeType.Delete
                         ? (Change)new SqlServerEntityChange(
                             MaterializeChange,
-                            token,
+                            generation,
                             changeType,
                             reader.GetGuid(idColumn),
                             reader.GetString(contentTypeColumn),
@@ -121,19 +150,19 @@ namespace DotJEM.Json.Storage.Adapter
                             reader.GetDateTime(createdColumn),
                             reader.GetDateTime(updatedColumn),
                             reader.GetSqlBinary(dataColumn).Value)
-                        : new SqlServerDeleteChange(MaterializeChange, token, changeType, reader.GetGuid(fidColumn));
+                        : new SqlServerDeleteChange(MaterializeChange, generation, changeType, reader.GetGuid(fidColumn));
                     changes.Add(change);
                 }
                 catch (Exception exception)
                 {
-                    changes.Add(new FaultyChange(token, changeType, reader.GetGuid(fidColumn), exception));
+                    changes.Add(new FaultyChange(generation, changeType, reader.GetGuid(fidColumn), exception));
                 }
             }
             if (changes.Any())
             {
-                return new StorageChangeCollection(area.Name, changes.Last().Token, changes);
+                return new StorageChangeCollection(area.Name, changes.Last().Generation, changes);
             }
-            return new StorageChangeCollection(area.Name, startToken, changes);
+            return new StorageChangeCollection(area.Name, startGeneration, changes);
         }
 
         private JObject MaterializeChange(SqlServerEntityChange arg)
@@ -170,41 +199,49 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000)
         {
-            return Get(previousToken, includeDeletes, count);
+            if (!TableExists)
+                return new StorageChangeCollection(area.Name, -1, new List<Change>());
+
+            return GetFromGeneration(CurrentGeneration, includeDeletes, count);
         }
 
-        public IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000)
+        public IStorageChangeCollection Get(long generation, bool includeDeletes = true, int count = 5000)
+        {
+            //Note: If the requested token is greater than the current generation, we fetch the latest generation.
+            //      This ensures that the generation actually exists so that we don't skip future generation.
+            if (generation > CurrentGeneration) generation = Math.Min(generation, LatestGeneration);
+
+            return GetFromGeneration(generation, includeDeletes, count);
+        }
+
+        private IStorageChangeCollection GetFromGeneration(long generation, bool includeDeletes, int count)
         {
             if (!TableExists)
                 return new StorageChangeCollection(area.Name, -1, new List<Change>());
 
-            //Note: If the requested token is greater than the current generation, we fetch the latest generation.
-            //      This ensures that the generation actually exists so that we don't skip future generation.
-            if (token > previousToken)
-                previousToken = Math.Min(token, LatestGeneration);
-            previousToken = token;
-
             if (count < 1)
             {
-                return new StorageChangeCollection(area.Name, previousToken, new List<Change>());
+                //Note: If count is 0 or less, we don't load any changes, but only resets the generation.
+                CurrentGeneration = generation;
+                return new StorageChangeCollection(area.Name, CurrentGeneration, new List<Change>());
             }
 
             using (SqlConnection connection = context.Connection())
             {
                 connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
+                using (SqlCommand command = new SqlCommand {Connection = connection})
                 {
                     command.CommandTimeout = context.Configuration.ReadCommandTimeout;
                     command.CommandText = includeDeletes
                         ? area.Commands["SelectChangesWithDeletes"]
                         : area.Commands["SelectChangesNoDeletes"];
-                    command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = token;
+                    command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = generation;
                     command.Parameters.Add(new SqlParameter("count", SqlDbType.Int)).Value = count;
 
                     using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        StorageChangeCollection changes = RunDataReader(token, reader);
-                        previousToken = changes.Token;
+                        StorageChangeCollection changes = RunDataReader(generation, reader);
+                        CurrentGeneration = changes.Generation;
                         return changes;
                     }
                 }
