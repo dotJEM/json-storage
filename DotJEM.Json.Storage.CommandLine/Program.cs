@@ -18,7 +18,7 @@ namespace DotJEM.Json.Storage.CommandLine
             IStorageContext context = new SqlServerStorageContext(command.ConnectionString);
             context.Configure.MapField(JsonField.Id, "id");
             IStorageArea area = context.Area(command.Area);
-
+            
             try
             {
                 Execute(command, area);
@@ -56,8 +56,16 @@ namespace DotJEM.Json.Storage.CommandLine
                     break;
                 case CommandType.List:
                     Console.WriteLine($"Documents of type '{command.ContentType}': ");
-                    foreach (dynamic json in area.Get(command.ContentType))
-                        Console.WriteLine($" > {json.id}");
+                    if (command.Deleted)
+                    {
+                        foreach (dynamic json in area.History.GetDeleted(command.ContentType))
+                            Console.WriteLine($" > {json.id}");
+                    }
+                    else
+                    {
+                        foreach (dynamic json in area.Get(command.ContentType))
+                            Console.WriteLine($" > {json.id}");
+                    }
                     break;
                 case CommandType.Insert:
                     Console.WriteLine("CREATED: {0}", area.Insert(command.ContentType, command.Document)["id"]);
@@ -77,10 +85,10 @@ namespace DotJEM.Json.Storage.CommandLine
 
     public class Command
     {
-        private static readonly Regex insertCommand = new Regex(@"^Insert\s(?'type'\w+)\((?'json'\{.*\})\)\sinto\s(?'area'\w+)\s-conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex listCommand = new Regex(@"^List\s(?'type'\w+)\sfrom\s(?'area'\w+)\s-conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex insertCommand = new Regex(@"^Insert\s(?'type'\w+)\((?'json'\{.*\})\)\sinto\s(?'area'\w+)\s--conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex listCommand = new Regex(@"^List\s(?'type'\w+)\sfrom\s(?'area'\w+)\s(?'deleted'--deleted)?\s--conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex getSingleCommand = new Regex(@"^Get\s(?'id'[{|\(]?[0-9A-F]{8}[-]?([0-9A-F]{4}[-]?){3}[0-9A-F]{12}[\)|}]?)\sfrom\s(?'area'\w+)\s-conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex getMultipleCommand = new Regex(@"^Get\s(?'type'\w+)\sfrom\s(?'area'\w+)\s-conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex getMultipleCommand = new Regex(@"^Get\s(?'type'\w+)\sfrom\s(?'area'\w+)\s--conn=(?'conn'.*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         //^Get\s([{|\(]?[0-9A-F]{8}[-]?([0-9A-F]{4}[-]?){3}[0-9A-F]{12}[\)|}]?)\sfrom\s(\w+)\s-conn=(.*)
 
@@ -137,8 +145,10 @@ namespace DotJEM.Json.Storage.CommandLine
             command.Area = match.Groups["area"].Value;
             command.ContentType = match.Groups["type"].Value;
             command.ConnectionString = match.Groups["conn"].Value;
+            command.Deleted = !string.IsNullOrEmpty(match.Groups["deleted"].Value);
             return command;
         }
+
 
         private static Command CreateInsertCommand(string full)
         {
@@ -160,6 +170,7 @@ namespace DotJEM.Json.Storage.CommandLine
         public string ConnectionString { get; set; }
         public string Area { get; set; }
         public CommandType Type { get; set; }
+        public bool Deleted { get; set; }
         public string ContentType { get; set; }
         public JObject Document { get; set; }
         public Guid Id { get; set; }

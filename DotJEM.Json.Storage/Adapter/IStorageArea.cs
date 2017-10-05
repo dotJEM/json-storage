@@ -38,7 +38,7 @@ namespace DotJEM.Json.Storage.Adapter
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly StorageMigrationManager migration;
-        private readonly SqlServerStorageAreaHistory history;
+        private readonly AbstractSqlServerStorageAreaHistory history;
         private readonly SqlServerStorageAreaLog log;
 
         private readonly object padlock = new object();
@@ -48,17 +48,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         public IStorageAreaLog Log => log;
 
-
-        public IStorageAreaHistory History
-        {
-            get
-            {
-                if (history == null)
-                    throw new InvalidOperationException("History must be enabled for an area in order to query history data.");
-
-                return history;
-            }
-        }
+        public IStorageAreaHistory History => history;
 
         internal ICommandFactory Commands { get; }
 
@@ -81,6 +71,10 @@ namespace DotJEM.Json.Storage.Adapter
             if (HistoryEnabled = context.Configuration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
+            }
+            else
+            {
+                history = new ReadOnlySqlServerStorageAreaHistory(this, context);
             }
         }
 
@@ -366,8 +360,6 @@ namespace DotJEM.Json.Storage.Adapter
                 json = new JObject();
                 json["$exception"] = ex.ToString();
             }
-            DateTime dt = new DateTime(DateTime.Now.Ticks, DateTimeKind.Utc);
-
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
             json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = Name;

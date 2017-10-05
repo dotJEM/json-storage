@@ -35,6 +35,8 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             JObject v1 = area.History.Get(id, 1);
             Assert.That(v1["count"].Value<int>(), Is.EqualTo(10));
+
+            area.Delete(id);
         }
 
     }
