@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,9 +14,12 @@ namespace DotJEM.Json.Storage.Test.Adapter
     [TestFixture]
     public class StorageAreaHistoryTest
     {
+
         [Test]
         public void Get_OneCreate_ReturnsOneChange()
         {
+            TestContext.DropArea("historytest");
+
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
             context.Configure.Area("historytest").EnableHistory();
 
@@ -30,6 +34,7 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             inserted["count"] = 20;
             area.Update(id, inserted);
+            area.History.Get(id);
 
             Assert.That(area.History.Get(id).ToList(), Has.Count.EqualTo(1));
 

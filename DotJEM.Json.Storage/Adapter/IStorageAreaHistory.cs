@@ -29,7 +29,7 @@ namespace DotJEM.Json.Storage.Adapter
     public abstract class AbstractSqlServerStorageAreaHistory : IStorageAreaHistory
     {
         private bool initialized;
-        private readonly Lazy<bool> tableExists;
+        private Lazy<bool> tableExists;
 
         protected SqlServerStorageArea Area { get; }
         protected SqlServerStorageContext Context { get; }
@@ -43,14 +43,19 @@ namespace DotJEM.Json.Storage.Adapter
             this.Area = area;
             this.Context = context;
 
+            ResetTableExistsEvaluator();
+        }
+
+        private void ResetTableExistsEvaluator()
+        {
             this.tableExists = new Lazy<bool>(() =>
             {
-                using (SqlConnection connection = context.Connection())
+                using (SqlConnection connection = Context.Connection())
                 {
                     connection.Open();
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
-                        command.CommandText = area.Commands["HistoryTableExists"];
+                        command.CommandText = Area.Commands["HistoryTableExists"];
                         object result = command.ExecuteScalar();
                         return 1 == Convert.ToInt32(result);
                     }
@@ -178,6 +183,7 @@ namespace DotJEM.Json.Storage.Adapter
                 CreateTable();
 
             initialized = true;
+            ResetTableExistsEvaluator();
         }
 
         protected virtual void CreateTable() { }
