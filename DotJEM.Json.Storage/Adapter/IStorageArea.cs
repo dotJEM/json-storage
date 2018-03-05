@@ -18,6 +18,7 @@ namespace DotJEM.Json.Storage.Adapter
     {
         string Name { get; }
         bool HistoryEnabled { get; }
+        bool UpdateOnMigrate { get; }
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
         IEnumerable<JObject> Get();
@@ -45,6 +46,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         public string Name { get; }
         public bool HistoryEnabled { get; }
+        public bool UpdateOnMigrate { get; }
 
         public IStorageAreaLog Log => log;
 
@@ -67,6 +69,7 @@ namespace DotJEM.Json.Storage.Adapter
             //TODO: Changelog should be optional just like history.
             log = new SqlServerStorageAreaLog(this, context);
 
+            UpdateOnMigrate = context.Configuration[name].UpdateOnMigrate;
             // ReSharper disable once AssignmentInConditionalExpression
             if (HistoryEnabled = context.Configuration[name].HistoryEnabled)
             {
@@ -76,6 +79,7 @@ namespace DotJEM.Json.Storage.Adapter
             {
                 history = new ReadOnlySqlServerStorageAreaHistory(this, context);
             }
+
         }
 
 
@@ -318,7 +322,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject MigrateAndUpdate(JObject entity, SqlConnection connection)
         {
-            var migrated = entity;
+            JObject migrated = entity;
             if (migration.Upgrade(ref migrated) && connection != null)
             {
                 string idField = context.Configuration.Fields[JsonField.Id];

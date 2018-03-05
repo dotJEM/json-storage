@@ -12,6 +12,7 @@ namespace DotJEM.Json.Storage.Configuration
         IStorageAreaConfigurator Configurator { get; }
 
         bool HistoryEnabled { get; }
+        bool UpdateOnMigrate { get; }
     }
 
     public interface IHistoryEnabledStorageAreaConfigurator : IStorageAreaConfigurator
@@ -34,11 +35,19 @@ namespace DotJEM.Json.Storage.Configuration
         IHistoryEnabledStorageAreaConfigurator IHistoryEnabledStorageAreaConfiguration.Configurator { get { return this; } }
 
         public bool HistoryEnabled { get; private set; }
+        public bool UpdateOnMigrate { get; private set; }
+
         public IEnumerable<IJObjectDecorator> Decorators { get { return decorators.AsReadOnly(); } }
 
         public IHistoryEnabledStorageAreaConfigurator EnableHistory()
         {
             HistoryEnabled = true;
+            return this;
+        }
+
+        public IHistoryEnabledStorageAreaConfigurator EnableUpdateOnMigrate()
+        {
+            UpdateOnMigrate = true;
             return this;
         }
 

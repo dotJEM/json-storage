@@ -70,7 +70,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
             this.changes = changes;
 
             //Note: This is basically sorting the changes based on type, but there is a few things to note here:
-            //      A) this is strictly a 2*N sorting algorithm (generally faster) rather than a N Log (N).
+            //      A) this is strictly a 2*N sorting algorithm (generally faster above 4 - 4 items have the same O) rather than a N Log (N).
             //         We can do this as we know there to me a max of 3 destict values so all we have to do is count them and
             //         then perform a liniar insert based on those counts.
             //

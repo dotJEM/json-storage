@@ -25,7 +25,6 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             IStorageArea area = context.Area("historytest");
 
-
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
 
@@ -34,7 +33,6 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             inserted["count"] = 20;
             area.Update(id, inserted);
-            area.History.Get(id);
 
             Assert.That(area.History.Get(id).ToList(), Has.Count.EqualTo(1));
 
