@@ -34,6 +34,31 @@ namespace DotJEM.Json.Storage.Test
             }).ToArray();
         }
 
+        [Test]
+        public void Fo()
+        {
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+            context.Configure
+                .MapField(JsonField.Id, "id")
+                .Area("info-test1")
+                .EnableHistory();
+
+            context.Configure.Area("info-test2")
+                .EnableHistory();
+
+            JObject doc = context.Area("info-test1").Insert("dummy", new JObject());
+            context.Area("info-test1").Update((Guid) doc["id"], new JObject()); // force creation of history table.
+            context.Area("info-test2").Insert("dummy", new JObject());
+            context.Area("info-test3").Insert("dummy", new JObject());
+
+            IAreaInformationCollection areas = context.AreaInfos;
+
+
+            Assert.That(areas["info-test1"].Tables, Is.EquivalentTo(new []{ "info-test1", "info-test1.seed", "info-test1.changelog", "info-test1.history" }));
+            Assert.That(areas["info-test2"].Tables, Is.EquivalentTo(new []{ "info-test2", "info-test2.seed", "info-test2.changelog" })); //There is no history table before it's needed.
+            Assert.That(areas["info-test3"].Tables, Is.EquivalentTo(new []{ "info-test3", "info-test3.seed", "info-test3.changelog" }));
+        }
+
         //[Test]  //TODO: TransactionScope does not work as it tries to elevate the transaction to a trx service.
         //                The TransactionScope class uses the CallContext and the logical setters/getters, so it is possible to implement our own simplified version that
         //                focuses on transactions that only runs locally.
