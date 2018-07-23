@@ -66,6 +66,9 @@ namespace DotJEM.Json.Storage.Adapter
         {
             get
             {
+                if (!TableExists)
+                    return -1;
+
                 using (SqlConnection connection = context.Connection())
                 {
                     connection.Open();
