@@ -206,8 +206,10 @@ namespace DotJEM.Json.Storage.Adapter
                         command.CommandText = Commands["CountByContentType"];
                         command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), contentType));
                     }
-
-                    return (long)command.ExecuteScalar();
+                    object count = command.ExecuteScalar();
+                    if (count == null || count is DBNull)
+                        return 0;
+                    return (long)count;
                 }
             }
         }

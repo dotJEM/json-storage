@@ -76,7 +76,10 @@ namespace DotJEM.Json.Storage.Adapter
                     {
                         command.CommandTimeout = context.Configuration.ReadCommandTimeout;
                         command.CommandText = area.Commands["SelectMaxGeneration"];
-                        return (long)command.ExecuteScalar();
+                        object maxGeneration = command.ExecuteScalar();
+                        if (maxGeneration == null || maxGeneration is DBNull)
+                            return -1;
+                        return (long)maxGeneration;
                     }
                 }
             }
