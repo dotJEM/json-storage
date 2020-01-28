@@ -4,7 +4,7 @@ image: Visual Studio 2019
 configuration: Release
 
 environment:
-  appveyor_sqlconnection: 'Server=.\SQL2014;Database=json;User ID=sa;Password=Password12!'
+  appveyor_sqlconnection: 'Server=.\SQL2017;Database=json;User ID=sa;Password=Password12!'
 
 init:
 - ps: $env:nuget_ver=$env:appveyor_build_version
