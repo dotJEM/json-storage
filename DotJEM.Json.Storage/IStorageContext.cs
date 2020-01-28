@@ -30,18 +30,18 @@ namespace DotJEM.Json.Storage
         private readonly Dictionary<string, IStorageArea> openAreas = new Dictionary<string, IStorageArea>();
         private readonly StorageMigrationManager manager;
 
-        public IBsonSerializer Serializer { get; private set; }
+        public IDataColumnSerializer Serializer { get; }
         public IStorageConfigurator Configure => Configuration;
         public IStorageMigrationManager MigrationManager => manager;
         public IAreaInformationCollection AreaInfos => ScanForAreas();
 
-        internal StorageConfiguration Configuration { get; private set; }
+        internal StorageConfiguration Configuration { get; }
 
-        public SqlServerStorageContext(string connectionString)
+        public SqlServerStorageContext(string connectionString, IDataColumnSerializer serializer = null)
         {
             this.connectionString = connectionString;
 
-            Serializer = new BsonSerializer();
+            Serializer = serializer ?? new BsonDataColumnSerializer();
             Configuration = new StorageConfiguration();
 
             manager = new StorageMigrationManager(Configuration);
