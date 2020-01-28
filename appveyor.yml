@@ -14,7 +14,7 @@ nuget:
   disable_publish_on_pr: true
 
 services:
-  - mssql2014
+  - mssql2017
 
 assembly_info:
   patch: true
