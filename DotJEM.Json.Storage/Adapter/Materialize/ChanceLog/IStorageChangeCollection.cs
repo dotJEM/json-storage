@@ -100,7 +100,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
             cursor[(int)ChangeType.Create] = 0;
             cursor[(int)ChangeType.Update] = count[(int)ChangeType.Create];
             cursor[(int)ChangeType.Delete] = count[(int)ChangeType.Create] + count[(int)ChangeType.Update];
-            cursor[(int)ChangeType.Faulty] = count[(int)ChangeType.Create] + count[(int)ChangeType.Update] + count[(int)ChangeType.Faulty];
+            cursor[(int)ChangeType.Faulty] = count[(int)ChangeType.Create] + count[(int)ChangeType.Update] + count[(int)ChangeType.Delete];
             foreach (IChangeLogRow change in changes)
             {
                 int i = cursor[(int) change.Type]++;
