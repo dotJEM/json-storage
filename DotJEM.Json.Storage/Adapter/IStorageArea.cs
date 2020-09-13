@@ -19,6 +19,7 @@ namespace DotJEM.Json.Storage.Adapter
     {
         string Name { get; }
         bool HistoryEnabled { get; }
+        bool UpdateOnMigrate { get; }
         IStorageAreaLog Log { get; }
         IStorageAreaHistory History { get; }
         IEnumerable<JObject> Get();
@@ -40,27 +41,18 @@ namespace DotJEM.Json.Storage.Adapter
         private bool initialized;
         private readonly SqlServerStorageContext context;
         private readonly StorageMigrationManager migration;
-        private readonly SqlServerStorageAreaHistory history;
+        private readonly AbstractSqlServerStorageAreaHistory history;
         private readonly SqlServerStorageAreaLog log;
 
         private readonly object padlock = new object();
 
         public string Name { get; }
         public bool HistoryEnabled { get; }
+        public bool UpdateOnMigrate { get; }
 
         public IStorageAreaLog Log => log;
 
-
-        public IStorageAreaHistory History
-        {
-            get
-            {
-                if (history == null)
-                    throw new InvalidOperationException("History must be enabled for an area in order to query history data.");
-
-                return history;
-            }
-        }
+        public IStorageAreaHistory History => history;
 
         internal ICommandFactory Commands { get; }
 
@@ -79,11 +71,17 @@ namespace DotJEM.Json.Storage.Adapter
             //TODO: Changelog should be optional just like history.
             log = new SqlServerStorageAreaLog(this, context);
 
+            UpdateOnMigrate = context.SqlServerConfiguration[name].UpdateOnMigrate;
             // ReSharper disable once AssignmentInConditionalExpression
             if (HistoryEnabled = context.SqlServerConfiguration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
             }
+            else
+            {
+                history = new ReadOnlySqlServerStorageAreaHistory(this, context);
+            }
+
         }
 
 
@@ -201,8 +199,10 @@ namespace DotJEM.Json.Storage.Adapter
                 command.CommandText = Commands["CountByContentType"];
                 command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), contentType));
             }
-
-            return (long)command.ExecuteScalar();
+                    object count = command.ExecuteScalar();
+                    if (count == null || count is DBNull)
+                        return 0;
+                    return (long)count;
         }
 
         private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)

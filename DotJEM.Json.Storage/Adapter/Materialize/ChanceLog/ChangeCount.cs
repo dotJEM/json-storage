@@ -34,6 +34,28 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
             return count.Total;
         }
 
+        public bool Equals(ChangeCount other)
+        {
+            return Created == other.Created && Updated == other.Updated && Deleted == other.Deleted;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            return obj is ChangeCount && Equals((ChangeCount) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hashCode = Created;
+                hashCode = (hashCode * 397) ^ Updated;
+                hashCode = (hashCode * 397) ^ Deleted;
+                return hashCode;
+            }
+        }
+
         public override string ToString()
         {
             return Faulted > 0

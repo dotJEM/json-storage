@@ -219,6 +219,10 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectHistoryForBetweenDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [fromdate] >= @fromdate AND [todate] <= @todate ORDER BY [{version}] DESC;");
             self.SelectDeletedHistoryByContentTypeFromDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
 
+            //self.Delete = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
+
+            self.DeleteHistoryByDate = Vars.Format("DELETE FROM [dbo].[{historyTableName}] WHERE [{updated}] < @{updated};");
+
             self.CreateHistoryTable = Vars.Format(
                 @"CREATE TABLE [dbo].[{historyTableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
@@ -307,7 +311,6 @@ namespace DotJEM.Json.Storage.Queries
 	                {tableFullName}.Updated, 
 	                {tableFullName}.Data, 
 
-
 	                changelogdata.[Action] AS [Action],
 	                changelog.[Token],
 	                changelog.[{fid}]
@@ -332,7 +335,6 @@ namespace DotJEM.Json.Storage.Queries
 	                {tableFullName}.Created, 
 	                {tableFullName}.Updated, 
 	                {tableFullName}.Data, 
-
 
 	                changelogdata.[Action] AS [Action],
 	                changelog.[Token],

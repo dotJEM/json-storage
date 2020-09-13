@@ -21,7 +21,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         /// Gets the last token in the collection, this can be used to acquire the next batch.
         /// This is also the same token that is automatically used if no token is provided.
         /// </summary>
-        long Token { get; }
+        long Generation { get; }
 
         /// <summary>
         /// Gets the number of changes in the current change collection, the count object
@@ -51,7 +51,6 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         /// </summary>
         IEnumerable<IChangeLogRow> Deleted { get; }
 
-        /// <summary>
         /// Gets all changes that was in a faulty state.
         /// </summary>
         IEnumerable<IChangeLogRow> Faulted { get; }
@@ -65,7 +64,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         public IEnumerable<IChangeLogRow> Partitioned => new ReadOnlyCollection<IChangeLogRow>(partitioned);
 
         public string StorageArea { get; }
-        public long Token { get; }
+        public long Generation { get; }
 
         public ChangeCount Count { get; }
         public IEnumerable<IChangeLogRow> Created { get; }
@@ -73,14 +72,14 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         public IEnumerable<IChangeLogRow> Deleted { get; }
         public IEnumerable<IChangeLogRow> Faulted { get; }
 
-        public StorageChangeCollection(string storageArea, long token, List<IChangeLogRow> changes)
+        public StorageChangeCollection(string storageArea, long generation, List<IChangeLogRow> changes)
         {
             StorageArea = storageArea;
-            Token = token;
+            Generation = generation;
             this.changes = changes;
 
             //Note: This is basically sorting the changes based on type, but there is a few things to note here:
-            //      A) this is strictly a 2*N sorting algorithm (generally faster) rather than a N Log (N).
+            //      A) this is strictly a 2*N sorting algorithm (generally faster above 4 - 4 items have the same O) rather than a N Log (N).
             //         We can do this as we know there to me a max of 3 destict values so all we have to do is count them and
             //         then perform a liniar insert based on those counts.
             //
@@ -116,6 +115,12 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
 
         public IEnumerator<IChangeLogRow> GetEnumerator() => changes.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public override string ToString()
+        {
+            //return $"Created: {Created}, Updated: {Updated}, Deleted: {Deleted}";
+            return $"[GEN:{Generation}] {Count} from {StorageArea}";
+        }
     }
 
 

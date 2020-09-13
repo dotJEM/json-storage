@@ -5,7 +5,6 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter.Materialize.Log
 {
-
     public class LogEntry
     {
         //private readonly Lazy<JObject> value;
@@ -36,7 +35,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.Log
 
         public static implicit operator JObject(LogEntry entry)
         {
-            return new BsonSerializer().Deserialize(entry.Data);
+            return new BsonDataColumnSerializer().Deserialize(entry.Data);
         }
     }
 }

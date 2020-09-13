@@ -12,7 +12,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
         public abstract int Size { get; }
 
         public string Area { get; }
-        public long Token { get; }
+        public long Generation { get; }
         public Guid Id { get; }
 
         public abstract ChangeType Type { get; }
@@ -20,7 +20,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
         protected ChangeLogRow(IStorageContext context, string area, long token, Guid id)
         {
             Area = area;
-            Token = token;
+            Generation = token;
             Id = id;
             Context = context;
         }

@@ -6,7 +6,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
 {
     public abstract class ChangeLogEntityRow : ChangeLogRow
     {
-        protected IBsonSerializer Serializer => Context.Serializer;
+        protected IDataColumnSerializer Serializer => Context.Serializer;
 
         public string ContentType { get; }
         public long Reference { get; }

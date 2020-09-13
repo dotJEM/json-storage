@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using Newtonsoft.Json;
@@ -12,63 +13,131 @@ namespace DotJEM.Json.Storage.Test.Adapter.Materialize.ChangeLog
     [TestFixture]
     public class StorageChangesCollectionTest
     {
+        [Test, Repeat(50)]
+        public void Count_RandomData_MatchesItems()
+        {
+            IStorageChangeCollection changes = new StorageChangeCollection("N/A", 0, new List<IChangeLogRow>(new FakeChangeFactory().Random(100)));
+            Assert.That(changes.Count, Is.EqualTo(new ChangeCount(changes.Created.Count(), changes.Updated.Count(), changes.Deleted.Count(), 0)));
+        }
+
+        [Test]
+        public void Count_5Each_ReturnsCountWith5Each()
+        {
+            IStorageChangeCollection changes = new StorageChangeCollection("N/A", 0, new List<IChangeLogRow>()
+            {
+                new FakeChange(00, ChangeType.Update, Guid.Empty), // 00 -> i=5
+                new FakeChange(01, ChangeType.Create, Guid.Empty), // 01 -> i=0
+                new FakeChange(02, ChangeType.Update, Guid.Empty), // 02 -> i=6
+                new FakeChange(03, ChangeType.Delete, Guid.Empty), // 03 -> i=10
+                new FakeChange(04, ChangeType.Update, Guid.Empty), // 04 -> i=7
+                new FakeChange(05, ChangeType.Create, Guid.Empty), // 05 -> i=1
+                new FakeChange(06, ChangeType.Delete, Guid.Empty), // 06 -> i=11
+                new FakeChange(07, ChangeType.Create, Guid.Empty), // 07 -> i=2
+                new FakeChange(08, ChangeType.Delete, Guid.Empty), // 08 -> i=12
+                new FakeChange(09, ChangeType.Update, Guid.Empty), // 09 -> i=8
+                new FakeChange(10, ChangeType.Delete, Guid.Empty), // 10 -> i=13
+                new FakeChange(11, ChangeType.Create, Guid.Empty), // 11 -> i=3
+                new FakeChange(12, ChangeType.Create, Guid.Empty), // 12 -> i=4
+                new FakeChange(13, ChangeType.Update, Guid.Empty), // 13 -> i=9
+                new FakeChange(14, ChangeType.Delete, Guid.Empty), // 14 -> i=14
+            });
+
+            Assert.That(changes.Count, Is.EqualTo(new ChangeCount(5, 5, 5, 0)));
+        }
+
         [Test]
         public void Partitioned_ReturnsChangesPartitionedIntoCreateUpdateDelete()
         {
             IStorageChangeCollection changes = new StorageChangeCollection("N/A", 0, new List<IChangeLogRow>()
             {
-                new DummyChange(00, ChangeType.Update), // 00 -> i=5
-                new DummyChange(01, ChangeType.Create), // 01 -> i=0
-                new DummyChange(02, ChangeType.Update), // 02 -> i=6
-                new DummyChange(03, ChangeType.Delete), // 03 -> i=10
-                new DummyChange(04, ChangeType.Update), // 04 -> i=7
-                new DummyChange(05, ChangeType.Create), // 05 -> i=1
-                new DummyChange(06, ChangeType.Delete), // 06 -> i=11
-                new DummyChange(07, ChangeType.Create), // 07 -> i=2
-                new DummyChange(08, ChangeType.Delete), // 08 -> i=12
-                new DummyChange(09, ChangeType.Update), // 09 -> i=8
-                new DummyChange(10, ChangeType.Delete), // 10 -> i=13
-                new DummyChange(11, ChangeType.Create), // 11 -> i=3
-                new DummyChange(12, ChangeType.Create), // 12 -> i=4
-                new DummyChange(13, ChangeType.Update), // 13 -> i=9
-                new DummyChange(14, ChangeType.Delete), // 14 -> i=14
+                new FakeChange(00, ChangeType.Update, Guid.Empty), // 00 -> i=5
+                new FakeChange(01, ChangeType.Create, Guid.Empty), // 01 -> i=0
+                new FakeChange(02, ChangeType.Update, Guid.Empty), // 02 -> i=6
+                new FakeChange(03, ChangeType.Delete, Guid.Empty), // 03 -> i=10
+                new FakeChange(04, ChangeType.Update, Guid.Empty), // 04 -> i=7
+                new FakeChange(05, ChangeType.Create, Guid.Empty), // 05 -> i=1
+                new FakeChange(06, ChangeType.Delete, Guid.Empty), // 06 -> i=11
+                new FakeChange(07, ChangeType.Create, Guid.Empty), // 07 -> i=2
+                new FakeChange(08, ChangeType.Delete, Guid.Empty), // 08 -> i=12
+                new FakeChange(09, ChangeType.Update, Guid.Empty), // 09 -> i=8
+                new FakeChange(10, ChangeType.Delete, Guid.Empty), // 10 -> i=13
+                new FakeChange(11, ChangeType.Create, Guid.Empty), // 11 -> i=3
+                new FakeChange(12, ChangeType.Create, Guid.Empty), // 12 -> i=4
+                new FakeChange(13, ChangeType.Update, Guid.Empty), // 13 -> i=9
+                new FakeChange(14, ChangeType.Delete, Guid.Empty), // 14 -> i=14
             });
 
-            Assert.That(string.Join(":",changes.Partitioned.Select(change => change.Token.ToString("D2"))),
+            Assert.That(string.Join(":", changes.Partitioned.Select(change => change.Generation.ToString("D2"))),
                 Is.EqualTo("01:05:07:11:12:00:02:04:09:13:03:06:08:10:14"));
+        }
+    }
 
+    public class FakeChange : IChangeLogRow
+    {
+
+        public string Area { get; } = string.Empty;
+        public long Generation { get; }
+        public int Size { get; } = 0;
+        public Guid Id { get; }
+        public ChangeType Type { get; }
+
+        public FakeChange(long token, ChangeType type, Guid? id)
+        {
+            Generation = token;
+            Type = type;
+            Id = id ?? Guid.Empty;
         }
 
-        public class DummyChange : IChangeLogRow
+        public JObject CreateEntity()
         {
+            throw new NotImplementedException();
+        }
 
-            public string Area { get; } = string.Empty;
-            public long Token { get; }
-            public int Size { get; } = 0;
-            public Guid Id { get; }
-            public ChangeType Type { get; }
+        public JsonReader OpenReader()
+        {
+            throw new NotImplementedException();
+        }
 
-            public DummyChange(long token, ChangeType type, Guid? id = null)
-            {
-                Token = token;
-                Type = type;
-                Id = id ?? Guid.Empty;
-            }
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+    }
 
-            public JObject CreateEntity()
-            {
-                throw new NotImplementedException();
-            }
+    public class FakeChangeFactory
+    {
+        private long gen = 0;
+        private readonly Random rnd = new Random();
+        private readonly ChangeType[] distribution;
 
-            public JsonReader OpenReader()
-            {
-                throw new NotImplementedException();
-            }
+        public FakeChangeFactory()
+            : this(ChangeType.Create, ChangeType.Update, ChangeType.Delete)
+        {
+        }
 
-            public void Dispose()
-            {
-                throw new NotImplementedException();
-            }
+        public FakeChangeFactory(params ChangeType[] distribution)
+        {
+            this.distribution = distribution;
+        }
+
+        public FakeChangeFactory(int create, int update, int delete)
+            : this(Enumerable.Empty<ChangeType>()
+                  .Union(Enumerable.Repeat(ChangeType.Create, create))
+                  .Union(Enumerable.Repeat(ChangeType.Update, update))
+                  .Union(Enumerable.Repeat(ChangeType.Delete, delete))
+                  .ToArray())
+        {
+        }
+
+        public IChangeLogRow Random()
+        {
+            return new FakeChange(gen++, distribution[rnd.Next(distribution.Length)], Guid.NewGuid());
+        }
+
+        public IEnumerable<IChangeLogRow> Random(int count)
+        {
+            for (int i = 0; i < count; i++)
+                yield return Random();
         }
     }
 }

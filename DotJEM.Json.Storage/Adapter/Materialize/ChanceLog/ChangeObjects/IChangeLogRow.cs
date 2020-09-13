@@ -7,7 +7,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
     public interface IChangeLogRow : IDisposable
     {
         string Area { get; }
-        long Token { get; }
+        long Generation { get; }
 
         int Size { get; }
         Guid Id { get; }
