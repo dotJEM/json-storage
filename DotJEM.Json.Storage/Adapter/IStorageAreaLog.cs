@@ -7,6 +7,7 @@ using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using DotJEM.Json.Storage.Adapter.Materialize;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
@@ -42,7 +43,7 @@ namespace DotJEM.Json.Storage.Adapter
                     connection.Open();
                     using (SqlCommand command = new SqlCommand { Connection = connection })
                     {
-                        command.CommandTimeout = context.Configuration.ReadCommandTimeout;
+                        command.CommandTimeout = context.SqlServerConfiguration.ReadCommandTimeout;
                         command.CommandText = area.Commands["SelectMaxGeneration"];
                         return (long)command.ExecuteScalar();
                     }
@@ -73,16 +74,26 @@ namespace DotJEM.Json.Storage.Adapter
                 {
                     reader.Read();
                     long token = reader.GetInt64(reader.GetOrdinal(StorageField.Id.ToString()));
-                    reader.Close(); ;
-                    
-                    return new StorageChangeCollection(area.Name, token, new List<Change> {
-                        //TODO: New change type which is already materialized to a JSON object.
-                        new SqlServerInsertedChange(changed, token, action, id)
-                    });
-                }
+                    reader.Close();
 
+                    string reference = (string)(changed ?? original)[context.Configuration.Fields[JsonField.Reference]];
+                    string contentType = (string)(changed ?? original)[context.Configuration.Fields[JsonField.ContentType]];
+                    int version = (int)(changed ?? original)[context.Configuration.Fields[JsonField.Version]];
+                    DateTime created = (DateTime)(changed ?? original)[context.Configuration.Fields[JsonField.Created]];
+                    DateTime updated = (DateTime)(changed ?? original)[context.Configuration.Fields[JsonField.Updated]];
+
+                    ChangeLogRow row = action switch
+                    {
+                        ChangeType.Create => new CreateOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, changed),
+                        ChangeType.Update => new UpdateOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, changed),
+                        ChangeType.Delete => new DeleteOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, original),
+                        _ => throw new ArgumentOutOfRangeException()
+                    };
+                    return new StorageChangeCollection(area.Name, token, new List<IChangeLogRow> { row });
+                }
             }
         }
+
 
         private StorageChangeCollection RunDataReader(long startToken, SqlDataReader reader)
         {
@@ -98,35 +109,25 @@ namespace DotJEM.Json.Storage.Adapter
             int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
             int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
 
-            List<Change> changes = new List<Change>();
+            List<IChangeLogRow> changes = new List<IChangeLogRow>();
             while (reader.Read())
             {
                 long token = reader.GetInt64(tokenColumn);
-
-                ChangeType changeType;
-                Enum.TryParse(reader.GetString(actionColumn), out changeType);
-
+                Enum.TryParse(reader.GetString(actionColumn), out ChangeType changeType);
                 try
                 {
-                    Change change = changeType != ChangeType.Delete
-                        ? (Change)new SqlServerEntityChange(
-                            MaterializeChange,
-                            token,
-                            changeType,
-                            reader.GetGuid(idColumn),
-                            reader.GetString(contentTypeColumn),
-                            area.Name,
-                            reader.GetInt64(refColumn),
-                            reader.GetInt32(versionColumn),
-                            reader.GetDateTime(createdColumn),
-                            reader.GetDateTime(updatedColumn),
-                            reader.GetSqlBinary(dataColumn).Value)
-                        : new SqlServerDeleteChange(MaterializeChange, token, changeType, reader.GetGuid(fidColumn));
-                    changes.Add(change);
+                    ChangeLogRow row = changeType switch
+                    {
+                        ChangeType.Create => new CreateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
+                        ChangeType.Update => new UpdateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
+                        ChangeType.Delete => new DeleteChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn)),
+                        _ => throw new ArgumentOutOfRangeException()
+                    };
+                    changes.Add(row);
                 }
                 catch (Exception exception)
                 {
-                    changes.Add(new FaultyChange(token, changeType, reader.GetGuid(fidColumn), exception));
+                    changes.Add(new FaultyChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn), changeType, exception));
                 }
             }
             if (changes.Any())
@@ -136,27 +137,6 @@ namespace DotJEM.Json.Storage.Adapter
             return new StorageChangeCollection(area.Name, startToken, changes);
         }
 
-        private JObject MaterializeChange(SqlServerEntityChange arg)
-        {
-            JObject json = context.Serializer.Deserialize(arg.Data);
-            json[context.Configuration.Fields[JsonField.Id]] = arg.Id;
-            json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(arg.Reference);
-            json[context.Configuration.Fields[JsonField.Area]] = arg.Area;
-            json[context.Configuration.Fields[JsonField.Version]] = arg.Version;
-            json[context.Configuration.Fields[JsonField.ContentType]] = arg.ContentType;
-            json[context.Configuration.Fields[JsonField.Created]] = DateTime.SpecifyKind(arg.Created, DateTimeKind.Utc);
-            json[context.Configuration.Fields[JsonField.Updated]] = DateTime.SpecifyKind(arg.Updated, DateTimeKind.Utc);
-            json = area.Migrate(json);
-            return json;
-        }
-
-        private JObject MaterializeChange(SqlServerDeleteChange arg)
-        {
-            JObject json = new JObject();
-            json[context.Configuration.Fields[JsonField.Id]] = arg.Id;
-            json[context.Configuration.Fields[JsonField.ContentType]] = "Dummy";
-            return json;
-        }
 
         private JObject Diff(JObject original, JObject changed)
         {
@@ -176,7 +156,7 @@ namespace DotJEM.Json.Storage.Adapter
         public IStorageChangeCollection Get(long token, bool includeDeletes = true, int count = 5000)
         {
             if (!TableExists)
-                return new StorageChangeCollection(area.Name, -1, new List<Change>());
+                return new StorageChangeCollection(area.Name, -1, new List<IChangeLogRow>());
 
             //Note: If the requested token is greater than the current generation, we fetch the latest generation.
             //      This ensures that the generation actually exists so that we don't skip future generation.
@@ -186,7 +166,7 @@ namespace DotJEM.Json.Storage.Adapter
 
             if (count < 1)
             {
-                return new StorageChangeCollection(area.Name, previousToken, new List<Change>());
+                return new StorageChangeCollection(area.Name, previousToken, new List<IChangeLogRow>());
             }
 
             using (SqlConnection connection = context.Connection())
@@ -194,7 +174,7 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand { Connection = connection })
                 {
-                    command.CommandTimeout = context.Configuration.ReadCommandTimeout;
+                    command.CommandTimeout = context.SqlServerConfiguration.ReadCommandTimeout;
                     command.CommandText = includeDeletes
                         ? area.Commands["SelectChangesWithDeletes"]
                         : area.Commands["SelectChangesNoDeletes"];

@@ -10,9 +10,12 @@ namespace DotJEM.Json.Storage
     {
         IStorageConfigurator Configure { get; }
         IStorageMigrationManager MigrationManager { get; }
-
         IStorageArea Area(string name = "content");
         bool Release(string name = "content");
+
+        IBsonSerializer Serializer { get; }
+
+        IStorageConfiguration Configuration { get; }
     }
 
     public class SqlServerStorageContext : IStorageContext
@@ -20,22 +23,25 @@ namespace DotJEM.Json.Storage
         private readonly string connectionString;
         private readonly Dictionary<string, IStorageArea> openAreas = new Dictionary<string, IStorageArea>();
         private readonly StorageMigrationManager manager;
+        private readonly StorageConfiguration configuration;
 
         public IBsonSerializer Serializer { get; private set; }
-        public IStorageConfigurator Configure => Configuration;
+        public IStorageConfigurator Configure => configuration;
 
         public IStorageMigrationManager MigrationManager => manager;
 
-        internal StorageConfiguration Configuration { get; private set; }
+        public IStorageConfiguration Configuration => configuration;
+
+        internal StorageConfiguration SqlServerConfiguration => configuration;
 
         public SqlServerStorageContext(string connectionString)
         {
             this.connectionString = connectionString;
 
             Serializer = new BsonSerializer();
-            Configuration = new StorageConfiguration();
+            configuration = new StorageConfiguration();
 
-            manager = new StorageMigrationManager(Configuration);
+            manager = new StorageMigrationManager(configuration);
         }
 
         public IStorageArea Area(string name = "content")
@@ -53,6 +59,13 @@ namespace DotJEM.Json.Storage
         internal SqlConnection Connection()
         {
             return new SqlConnection(connectionString);
+        }
+
+        internal SqlConnection OpenConnection()
+        {
+            SqlConnection conn = this.Connection();
+            conn.Open();
+            return conn;
         }
     }
 }

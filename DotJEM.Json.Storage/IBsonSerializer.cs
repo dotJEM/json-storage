@@ -1,4 +1,5 @@
 using System.IO;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using Newtonsoft.Json.Linq;
 
@@ -8,6 +9,7 @@ namespace DotJEM.Json.Storage
     {
         byte[] Serialize(JObject json);
         JObject Deserialize(byte[] data);
+        JsonReader OpenReader(byte[] data);
     }
 
     public class BsonSerializer : IBsonSerializer
@@ -28,6 +30,7 @@ namespace DotJEM.Json.Storage
         {
             if (data.Length == 0)
                 return null;
+
             using (MemoryStream stream = new MemoryStream(data))
             {
                 using (BsonDataReader bson = new BsonDataReader(stream))
@@ -35,6 +38,11 @@ namespace DotJEM.Json.Storage
                     return (JObject)JToken.ReadFrom(bson);
                 }
             }
+        }
+
+        public JsonReader OpenReader(byte[] data)
+        {
+            return new BsonDataReader(new MemoryStream(data));
         }
     }
 }

@@ -127,7 +127,7 @@ namespace DotJEM.Json.Storage.Adapter
                 connection.Open();
                 using (SqlCommand command = new SqlCommand(area.Commands[cmd], connection))
                 {
-                    command.CommandTimeout = context.Configuration.ReadCommandTimeout;
+                    command.CommandTimeout = context.SqlServerConfiguration.ReadCommandTimeout;
                     command.Parameters.AddRange(parameters);
 
                     //TODO: Dynamically read columns.
@@ -170,7 +170,7 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject ExecuteDecorators(JObject json)
         {
-            IHistoryEnabledStorageAreaConfiguration config = (IHistoryEnabledStorageAreaConfiguration)context.Configuration.Area(area.Name);
+            IHistoryEnabledStorageAreaConfiguration config = (IHistoryEnabledStorageAreaConfiguration)context.SqlServerConfiguration.Area(area.Name);
             return config.Decorators.Aggregate(json, (obj, decorator) => decorator.Decorate(obj));
         }
 

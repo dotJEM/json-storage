@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using DotJEM.Json.Storage.Adapter.Materialize.Log;
 
 namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
@@ -9,7 +10,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
     /// <summary>
     /// Provides a set of changes occured within a <see cref="IStorageArea"/>, this can be usefull to use for notifications etc.
     /// </summary>
-    public interface IStorageChangeCollection : IEnumerable<Change>
+    public interface IStorageChangeCollection : IEnumerable<IChangeLogRow>
     {
         /// <summary>
         /// Gets the name of the <see cref="IStorageArea"/> from where the changes came.
@@ -33,39 +34,46 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
         /// Gets all changes in a Partitioned <see cref="IEnumerable{T}"/> with Created first followed
         /// by Updates and finally Deletes, within each type the order is preserved.
         /// </summary>
-        IEnumerable<Change> Partitioned { get; }
+        IEnumerable<IChangeLogRow> Partitioned { get; }
 
         /// <summary>
         /// Gets all changes that was creation of objects.
         /// </summary>
-        IEnumerable<Change> Created { get; }
+        IEnumerable<IChangeLogRow> Created { get; }
 
         /// <summary>
         /// Gets all changes that was updates of objects.
         /// </summary>
-        IEnumerable<Change> Updated { get; }
+        IEnumerable<IChangeLogRow> Updated { get; }
         
         /// <summary>
         /// Gets all changes that was deletions of objects.
         /// </summary>
-        IEnumerable<Change> Deleted { get; }
+        IEnumerable<IChangeLogRow> Deleted { get; }
 
-
+        /// <summary>
+        /// Gets all changes that was in a faulty state.
+        /// </summary>
+        IEnumerable<IChangeLogRow> Faulted { get; }
     }
 
     public class StorageChangeCollection : IStorageChangeCollection
     {
-        private readonly List<Change> changes;
-        private readonly Change[] partitions;
-        public IEnumerable<Change> Partitioned => new ReadOnlyCollection<Change>(partitions);
+        private readonly List<IChangeLogRow> changes;
+        private readonly IChangeLogRow[] partitioned;
+
+        public IEnumerable<IChangeLogRow> Partitioned => new ReadOnlyCollection<IChangeLogRow>(partitioned);
+
         public string StorageArea { get; }
         public long Token { get; }
-        public ChangeCount Count { get; }
-        public IEnumerable<Change> Created { get; }
-        public IEnumerable<Change> Updated { get; }
-        public IEnumerable<Change> Deleted { get; }
 
-        public StorageChangeCollection(string storageArea, long token, List<Change> changes)
+        public ChangeCount Count { get; }
+        public IEnumerable<IChangeLogRow> Created { get; }
+        public IEnumerable<IChangeLogRow> Updated { get; }
+        public IEnumerable<IChangeLogRow> Deleted { get; }
+        public IEnumerable<IChangeLogRow> Faulted { get; }
+
+        public StorageChangeCollection(string storageArea, long token, List<IChangeLogRow> changes)
         {
             StorageArea = storageArea;
             Token = token;
@@ -77,35 +85,36 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
             //         then perform a liniar insert based on those counts.
             //
             //      B) We preserve the order of changes as they apear if we did a "filter" on the original list instead.
-            int[] count = new int[3];
+            int[] count = new int[4];
             count[(int)ChangeType.Create] = 0;
             count[(int)ChangeType.Update] = 0;
             count[(int)ChangeType.Delete] = 0;
-            foreach (Change change in changes)
+            count[(int)ChangeType.Faulty] = 0;
+            foreach (IChangeLogRow change in changes)
                 count[(int) change.Type]++;
 
-            Count = new ChangeCount(count[(int)ChangeType.Create], count[(int)ChangeType.Update], count[(int)ChangeType.Delete]);
+            Count = new ChangeCount(count[(int)ChangeType.Create], count[(int)ChangeType.Update], count[(int)ChangeType.Delete], count[(int)ChangeType.Faulty]);
 
-            partitions = new Change[count.Sum()];
+            partitioned = new IChangeLogRow[changes.Count];
 
-            int[] cursor = new int[3];
+            int[] cursor = new int[4];
             cursor[(int)ChangeType.Create] = 0;
             cursor[(int)ChangeType.Update] = count[(int)ChangeType.Create];
-            cursor[(int)ChangeType.Delete] = count[(int)ChangeType.Create]+count[(int)ChangeType.Update];
-            foreach (Change change in changes)
+            cursor[(int)ChangeType.Delete] = count[(int)ChangeType.Create] + count[(int)ChangeType.Update];
+            cursor[(int)ChangeType.Faulty] = count[(int)ChangeType.Create] + count[(int)ChangeType.Update] + count[(int)ChangeType.Faulty];
+            foreach (IChangeLogRow change in changes)
             {
                 int i = cursor[(int) change.Type]++;
-                partitions[i] = change;
+                partitioned[i] = change;
             }
 
-            Created = ArrayPartition.Create(partitions, 0, count[(int)ChangeType.Create]);
-            Updated = ArrayPartition.Create(partitions, cursor[(int) ChangeType.Create], count[(int) ChangeType.Update]);
-            Deleted = ArrayPartition.Create(partitions, cursor[(int)ChangeType.Update], count[(int)ChangeType.Delete]);
-
-
+            Created = ArrayPartition.Create(partitioned, 0, count[(int)ChangeType.Create]);
+            Updated = ArrayPartition.Create(partitioned, cursor[(int) ChangeType.Create], count[(int) ChangeType.Update]);
+            Deleted = ArrayPartition.Create(partitioned, cursor[(int)ChangeType.Update], count[(int)ChangeType.Delete]);
+            Faulted = ArrayPartition.Create(partitioned, cursor[(int)ChangeType.Delete], count[(int)ChangeType.Faulty]);
         }
 
-        public IEnumerator<Change> GetEnumerator() => changes.GetEnumerator();
+        public IEnumerator<IChangeLogRow> GetEnumerator() => changes.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 

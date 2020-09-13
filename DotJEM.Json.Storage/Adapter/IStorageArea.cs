@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
@@ -25,6 +26,7 @@ namespace DotJEM.Json.Storage.Adapter
         IEnumerable<JObject> Get(string contentType);
         IEnumerable<JObject> Get(string contentType, long rowindex, int count = 100);
         IEnumerable<JObject> Get(IEnumerable<Guid> guids);
+
         JObject Get(Guid guid);
         JObject Insert(string contentType, JObject json);
         JObject Update(Guid guid, JObject json);
@@ -78,7 +80,7 @@ namespace DotJEM.Json.Storage.Adapter
             log = new SqlServerStorageAreaLog(this, context);
 
             // ReSharper disable once AssignmentInConditionalExpression
-            if (HistoryEnabled = context.Configuration[name].HistoryEnabled)
+            if (HistoryEnabled = context.SqlServerConfiguration[name].HistoryEnabled)
             {
                 history = new SqlServerStorageAreaHistory(this, context);
             }
@@ -148,45 +150,38 @@ namespace DotJEM.Json.Storage.Adapter
             EnsureTable();
 
             JObject jsonWithMetadata = (JObject)json.DeepClone();
-            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
+            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.SqlServerConfiguration.VersionProvider.Current;
 
-            using (SqlConnection connection = context.Connection())
+            using SqlConnection connection = context.OpenConnection();
+            using SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted);
+            
+            JObject insert;
+            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
             {
-                connection.Open();
-                using (SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted))
-                {
-                    JObject insert;
-                    using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
-                    {
-                        DateTime created = DateTime.UtcNow;
-                        command.CommandText = Commands["Insert"];
-                        command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
-                        command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
-                        command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
-                        command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
+                DateTime created = DateTime.UtcNow;
+                command.CommandText = Commands["Insert"];
+                command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
+                command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
+                command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
 
-                        using (SqlDataReader reader = command.ExecuteReader())
-                        {
-                            insert = RunDataReader(reader).Single();
-                            reader.Close();
-                        }
-                    }
-                    log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create, connection, transaction);
-                    transaction.Commit();
-                    return insert;
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    insert = RunDataReader(reader).Single();
+                    reader.Close();
                 }
             }
+            log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create, connection, transaction);
+            transaction.Commit();
+            return insert;
         }
 
         public JObject Update(Guid id, JObject json)
         {
             EnsureTable();
 
-            using (SqlConnection connection = context.Connection())
-            {
-                connection.Open();
-                return InternalUpdate(id, json, connection);
-            }
+            using SqlConnection connection = context.OpenConnection(); 
+            return InternalUpdate(id, json, connection);
         }
 
         public long Count(string contentType = null)
@@ -194,126 +189,111 @@ namespace DotJEM.Json.Storage.Adapter
             if (!TableExists)
                 return 0;
 
-            using (SqlConnection connection = context.Connection())
+            using SqlConnection connection = context.OpenConnection();
+            using SqlCommand command = new SqlCommand { Connection = connection };
+            
+            if (string.IsNullOrEmpty(contentType))
             {
-                connection.Open();
-                using (SqlCommand command = new SqlCommand { Connection = connection })
-                {
-                    if (string.IsNullOrEmpty(contentType))
-                    {
-                        command.CommandText = Commands["Count"];
-                    }
-                    else
-                    {
-                        command.CommandText = Commands["CountByContentType"];
-                        command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), contentType));
-                    }
-
-                    return (long)command.ExecuteScalar();
-                }
+                command.CommandText = Commands["Count"];
             }
+            else
+            {
+                command.CommandText = Commands["CountByContentType"];
+                command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), contentType));
+            }
+
+            return (long)command.ExecuteScalar();
         }
 
         private JObject InternalUpdate(Guid id, JObject json, SqlConnection connection)
         {
             JObject jsonWithMetadata = (JObject)json.DeepClone();
-            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
+            jsonWithMetadata[context.Configuration.Fields[JsonField.SchemaVersion]] = context.SqlServerConfiguration.VersionProvider.Current;
 
-            using (SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted))
+            using SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
+            JObject deleted;
+            JObject update;
+            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
             {
-                JObject deleted;
-                JObject update;
-                using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
+                DateTime updateTime = DateTime.UtcNow;
+                command.CommandText = Commands["Update"];
+                command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
+                command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
+
+                using (SqlDataReader reader = command.ExecuteReader())
                 {
-                    DateTime updateTime = DateTime.UtcNow;
-                    command.CommandText = Commands["Update"];
-                    command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
-                    command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
-                    command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
+                    if (!reader.HasRows)
+                        throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
 
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        if (!reader.HasRows)
-                            throw new Exception("Unable to update, could not find any existing objects with id '" + id + "'.");
+                    reader.Read();
 
-                        reader.Read();
+                    deleted = ReadPrefixedRow("DELETED", reader);
+                    update = ReadPrefixedRow("INSERTED", reader);
 
-                        deleted = ReadPrefixedRow("DELETED", reader);
-                        update = ReadPrefixedRow("INSERTED", reader);
-
-                        reader.Close();
-                    }
+                    reader.Close();
                 }
-
-                log.Insert(id, deleted, update, ChangeType.Update, connection, transaction);
-                history?.Create(deleted, false, connection, transaction);
-
-                transaction.Commit();
-                return update;
             }
+
+            log.Insert(id, deleted, update, ChangeType.Update, connection, transaction);
+            history?.Create(deleted, false, connection, transaction);
+
+            transaction.Commit();
+            return update;
         }
         public JObject Delete(Guid guid)
         {
             EnsureTable();
 
-            using (SqlConnection connection = context.Connection())
+            using SqlConnection connection = context.OpenConnection();
+            using SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted);
+
+            JObject deleted;
+            using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
             {
-                connection.Open();
-                using (SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted))
+                command.CommandText = Commands["Delete"];
+                command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
+
+                //TODO: Transactions (DAMMIT! hoped we could avoid that) - Need to pass the connection around in this case though!.
+                using (SqlDataReader reader = command.ExecuteReader())
                 {
-                    JObject deleted;
-                    using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
-                    {
-                        command.CommandText = Commands["Delete"];
-                        command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = guid;
-
-                        //TODO: Transactions (DAMMIT! hoped we could avoid that) - Need to pass the connection around in this case though!.
-                        using (SqlDataReader reader = command.ExecuteReader())
-                        {
-                            deleted = RunDataReader(reader).SingleOrDefault();
-                        }
-                    }
-                    if (deleted == null)
-                        return null;
-
-                    log.Insert(guid, deleted, null, ChangeType.Delete, connection, transaction);
-                    history?.Create(deleted, true, connection, transaction);
-
-                    transaction.Commit();
-                    return deleted;
+                    deleted = RunDataReader(reader).SingleOrDefault();
                 }
             }
+            if (deleted == null)
+                return null;
+
+            log.Insert(guid, deleted, null, ChangeType.Delete, connection, transaction);
+            history?.Create(deleted, true, connection, transaction);
+
+            transaction.Commit();
+            return deleted;
         }
 
         private IEnumerable<JObject> InternalGet(string commandText, params SqlParameter[] parameters)
         {
             EnsureTable();
 
-            using (SqlConnection connection = context.Connection())
-            {
-                connection.Open();
-                List<JObject> entities = GetEntities(commandText, parameters, connection);
-                // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
-                entities = MigrateEntities(entities, connection);
-                return entities;
-            }
+            using SqlConnection connection = context.OpenConnection();
+            List<JObject> entities = GetEntities(commandText, parameters, connection);
+            // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
+            entities = MigrateEntities(entities, connection);
+            return entities;
         }
 
         private List<JObject> GetEntities(string commandText, SqlParameter[] parameters, SqlConnection connection)
         {
             List<JObject> entities = new List<JObject>();
-            using (SqlCommand command = new SqlCommand(commandText, connection))
-            {
-                command.CommandTimeout = context.Configuration.ReadCommandTimeout;
-                command.Parameters.AddRange(parameters);
+            using SqlCommand command = new SqlCommand(commandText, connection);
+            command.CommandTimeout = context.SqlServerConfiguration.ReadCommandTimeout;
+            command.Parameters.AddRange(parameters);
 
-                //TODO: Dynamically read columns.
-                using (SqlDataReader dataReader = command.ExecuteReader())
-                {
-                    entities.AddRange(RunDataReader(dataReader));
-                }
-                command.Parameters.Clear();
+            //TODO: Dynamically read columns.
+            using (SqlDataReader dataReader = command.ExecuteReader())
+            {
+                entities.AddRange(RunDataReader(dataReader));
             }
+            command.Parameters.Clear();
             return entities;
         }
 
@@ -324,13 +304,13 @@ namespace DotJEM.Json.Storage.Adapter
 
         private JObject MigrateAndUpdate(JObject entity, SqlConnection connection)
         {
-            var migrated = entity;
+            JObject migrated = entity;
             if (migration.Upgrade(ref migrated) && connection != null)
             {
                 string idField = context.Configuration.Fields[JsonField.Id];
                 migrated = InternalUpdate((Guid)entity[idField], migrated, connection);
             }
-            migrated[context.Configuration.Fields[JsonField.SchemaVersion]] = context.Configuration.VersionProvider.Current;
+            migrated[context.Configuration.Fields[JsonField.SchemaVersion]] = context.SqlServerConfiguration.VersionProvider.Current;
             return migrated;
         }
 
@@ -366,8 +346,6 @@ namespace DotJEM.Json.Storage.Adapter
                 json = new JObject();
                 json["$exception"] = ex.ToString();
             }
-            DateTime dt = new DateTime(DateTime.Now.Ticks, DateTimeKind.Utc);
-
             json[context.Configuration.Fields[JsonField.Id]] = reader.GetGuid(idColumn);
             json[context.Configuration.Fields[JsonField.Reference]] = Base36.Encode(reader.GetInt64(refColumn));
             json[context.Configuration.Fields[JsonField.Area]] = Name;

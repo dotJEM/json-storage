@@ -1,13 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace DotJEM.Json.Storage.Adapter.Materialize.Log
+namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog
 {
     public class ArrayPartition
     {
         public static ArrayPartition<T> Create<T>(T[] source, int start, int stop) => new ArrayPartition<T>(source, start, stop);
-
     }
+
     public class ArrayPartition<T> : IEnumerable<T>
     {
         private readonly int start;

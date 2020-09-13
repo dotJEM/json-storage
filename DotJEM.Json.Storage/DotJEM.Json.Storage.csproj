@@ -9,10 +9,11 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>DotJEM.Json.Storage</RootNamespace>
     <AssemblyName>DotJEM.Json.Storage</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,6 +23,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,6 +32,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -49,9 +52,17 @@
   <ItemGroup>
     <Compile Include="Adapter\IStorageAreaHistory.cs" />
     <Compile Include="Adapter\IStorageAreaLog.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeLogEntityRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeType.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\CreateChangeLogRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\CreateOnChangeLogRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\DeleteChangeLogRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\FaultyChangeLogRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\IChangeLogRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\UpdateChangeLogRow.cs" />
     <Compile Include="Adapter\Materialize\JsonEntity.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ArrayPartition.cs" />
-    <Compile Include="Adapter\Materialize\ChanceLog\Change.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeLogRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeCount.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\IStorageChangeCollection.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\LogEntry.cs" />

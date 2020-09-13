@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Stress.Index;
 using DotJEM.Json.Storage.Stress.Logging;

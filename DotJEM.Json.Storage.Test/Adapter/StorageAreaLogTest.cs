@@ -30,9 +30,11 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Created.Count(), Is.EqualTo(1));
-            Assert.That(changes.First().Entity, Is.EqualTo(inserted));
 
-            Console.WriteLine(changes.First().Entity);
+            JObject logEntity = changes.First().CreateEntity();
+            Assert.That(logEntity, Is.EqualTo(inserted));
+
+            Console.WriteLine(changes.First().CreateEntity());
         }
 
         [Test]
@@ -54,9 +56,9 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Updated.Count(), Is.EqualTo(1));
-            Assert.That(changes.First().Entity, Is.EqualTo(updated));
+            Assert.That(changes.First().CreateEntity(), Is.EqualTo(updated));
 
-            Console.WriteLine(changes.First().Entity);
+            Console.WriteLine(changes.First().CreateEntity());
         }
 
         [Test]
@@ -78,9 +80,9 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             Assert.That(changes.Count(), Is.EqualTo(1));
             Assert.That(changes.Deleted.Count(), Is.EqualTo(1));
-            Assert.That(changes.First().Entity, Is.EqualTo(JObject.Parse("{ $id: '" + inserted["$id"] + "', $contentType: 'Dummy' }")));
+            Assert.That(changes.First().CreateEntity(), Is.EqualTo(JObject.Parse("{ $id: '" + inserted["$id"] + "', $contentType: 'Dummy' }")));
 
-            Console.WriteLine(changes.First().Entity);
+            Console.WriteLine(changes.First().CreateEntity());
         }
 
         [Test]
