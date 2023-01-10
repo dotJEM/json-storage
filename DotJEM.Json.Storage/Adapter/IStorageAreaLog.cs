@@ -131,6 +131,16 @@ namespace DotJEM.Json.Storage.Adapter
 
         private StorageChangeCollection RunDataReader(long startGeneration, SqlDataReader reader)
         {
+            List<IChangeLogRow> changes = EnumerateReader(reader).ToList();
+            if (changes.Any())
+            {
+                return new StorageChangeCollection(area.Name, changes.Last().Generation, changes);
+            }
+            return new StorageChangeCollection(area.Name, startGeneration, changes);
+        }
+
+        private IEnumerable<IChangeLogRow> EnumerateReader(SqlDataReader reader)
+        {
             int tokenColumn = reader.GetOrdinal("Token");
             int actionColumn = reader.GetOrdinal("Action");
             int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
@@ -143,34 +153,31 @@ namespace DotJEM.Json.Storage.Adapter
             int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
             int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
 
-            List<IChangeLogRow> changes = new List<IChangeLogRow>();
             while (reader.Read())
             {
                 long token = reader.GetInt64(tokenColumn);
                 Enum.TryParse(reader.GetString(actionColumn), out ChangeType changeType);
-                try
+                yield return CreateRow();
+                IChangeLogRow CreateRow()
                 {
-                    ChangeLogRow row = changeType switch
+                    try
                     {
-                        ChangeType.Create => new CreateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
-                        ChangeType.Update => new UpdateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
-                        ChangeType.Delete => new DeleteChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn)),
-                        _ => throw new ArgumentOutOfRangeException()
-                    };
-                    changes.Add(row);
-                }
-                catch (Exception exception)
-                {
-                    changes.Add(new FaultyChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn), changeType, exception));
+                        ChangeLogRow row = changeType switch
+                        {
+                            ChangeType.Create => new CreateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
+                            ChangeType.Update => new UpdateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
+                            ChangeType.Delete => new DeleteChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn)),
+                            _ => throw new ArgumentOutOfRangeException()
+                        };
+                        return row;
+                    }
+                    catch (Exception exception)
+                    {
+                        return new FaultyChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn), changeType, exception);
+                    }
                 }
             }
-            if (changes.Any())
-            {
-                return new StorageChangeCollection(area.Name, changes.Last().Generation, changes);
-            }
-            return new StorageChangeCollection(area.Name, startGeneration, changes);
         }
-
 
         private JObject Diff(JObject original, JObject changed)
         {
