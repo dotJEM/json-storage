@@ -52,6 +52,7 @@
   <ItemGroup>
     <Compile Include="Adapter\IStorageAreaHistory.cs" />
     <Compile Include="Adapter\IStorageAreaLog.cs" />
+    <Compile Include="Adapter\Observeable\IStorageAreaLogObserveable.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeLogEntityRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeType.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\CreateChangeLogRow.cs" />

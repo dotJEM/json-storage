@@ -275,13 +275,13 @@ namespace DotJEM.Json.Storage.Adapter
             EnsureTable();
 
             using SqlConnection connection = context.OpenConnection();
-            List<JObject> entities = GetEntities(commandText, parameters, connection);
+            List<JObject> entities = GetEntities(commandText, parameters, connection).ToList();
             // Migrate must execute after the get/read operation in order not to affect the "get" SQL operation
-            entities = MigrateEntities(entities, connection);
+            entities = MigrateEntities(entities, connection).ToList();
             return entities;
         }
 
-        private List<JObject> GetEntities(string commandText, SqlParameter[] parameters, SqlConnection connection)
+        private IEnumerable<JObject> GetEntities(string commandText, SqlParameter[] parameters, SqlConnection connection, bool updateOnRead = false)
         {
             List<JObject> entities = new List<JObject>();
             using SqlCommand command = new SqlCommand(commandText, connection);
@@ -289,17 +289,16 @@ namespace DotJEM.Json.Storage.Adapter
             command.Parameters.AddRange(parameters);
 
             //TODO: Dynamically read columns.
-            using (SqlDataReader dataReader = command.ExecuteReader())
-            {
+            using (SqlDataReader dataReader = command.ExecuteReader()) {
                 entities.AddRange(RunDataReader(dataReader));
             }
             command.Parameters.Clear();
             return entities;
         }
 
-        private List<JObject> MigrateEntities(IEnumerable<JObject> entities, SqlConnection connection)
+        private IEnumerable<JObject> MigrateEntities(IEnumerable<JObject> entities, SqlConnection connection)
         {
-            return entities.Select(entity => MigrateAndUpdate(entity, connection)).ToList();
+            return entities.Select(entity => MigrateAndUpdate(entity, connection));
         }
 
         private JObject MigrateAndUpdate(JObject entity, SqlConnection connection)

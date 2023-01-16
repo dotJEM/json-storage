@@ -388,6 +388,66 @@ namespace DotJEM.Json.Storage.Queries
                 FROM sys.indexes 
                 WHERE name LIKE '{logTableName}.%' AND object_id = OBJECT_ID('{logTableFullName}');
             ");
+
+            
+            self.SelectChangesObserver = Vars.Format(@"
+                SELECT
+	                {tableFullName}.Id,
+	                {tableFullName}.Reference, 
+	                {tableFullName}.Version, 
+	                {tableFullName}.ContentType, 
+	                {tableFullName}.Created, 
+	                {tableFullName}.Updated, 
+	                {tableFullName}.Data, 
+
+	                changelogdata.[Action] AS [Action],
+	                changelog.[Token],
+	                changelog.[{fid}]
+
+                FROM ( 
+	                SELECT MAX([{id}]) as Token, [{fid}] 
+	                FROM {logTableFullName}
+	                WHERE [{id}] > @token
+	                GROUP BY [{fid}]) changelog
+
+	                JOIN {logTableFullName} changelogdata ON changelogdata.[{id}] = changelog.Token
+	                LEFT JOIN {tableFullName} ON {tableFullName}.[{id}] = changelog.[{fid}]
+                ORDER BY Token
+            ");
+
+            self.SelectChangesObserverInit = Vars.Format(@"
+                SELECT
+	                {tableFullName}.Id,
+	                {tableFullName}.Reference, 
+	                {tableFullName}.Version, 
+	                {tableFullName}.ContentType, 
+	                {tableFullName}.Created, 
+	                {tableFullName}.Updated, 
+	                {tableFullName}.Data, 
+
+	                changelogdata.[Action] AS [Action],
+	                changelog.[Token],
+	                changelog.[{fid}]
+
+                FROM ( 
+	                SELECT MAX([{id}]) as Token, [{fid}] 
+	                FROM {logTableFullName}
+	                WHERE [{id}] > @token AND [{id}] < @maxToken
+	                GROUP BY [{fid}] ) changelog
+
+	                JOIN {logTableFullName} changelogdata ON changelogdata.[{id}] = changelog.Token
+	                LEFT JOIN {tableFullName} ON {tableFullName}.[{id}] = changelog.[{fid}]
+         
+                WHERE Action <> 'Delete'
+                ORDER BY Token
+            ");
+
+
+
+
+
+
+
         }
     }
 }
