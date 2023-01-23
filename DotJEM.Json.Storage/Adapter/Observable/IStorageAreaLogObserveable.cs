@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
+using System.Runtime.Remoting.Contexts;
 using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
@@ -191,6 +193,7 @@ public interface IChangeObserverState: IDisposable
 }
 
 
+
 public class ChangeLogRowFactory
 {
     private readonly IStorageContext context;
@@ -213,32 +216,36 @@ public class ChangeLogRowFactory
             switch (changeType)
             {
                 case ChangeType.Create:
-                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)))
+                    ChangeLogRowMetaData metaData = columnSet.LoadMetaData(reader, area);
+                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)
+                               , new ChangeLogInjector(context, metaData)))
                     {
                         return new CreateOnChangeLogRow(context,
                             area,
                             token,
-                            reader.GetGuid(columnSet.IDColumn),
-                            reader.GetString(columnSet.ContentTypeColumn),
-                            reader.GetInt64(columnSet.RefColumn),
-                            reader.GetInt32(columnSet.VersionColumn),
-                            reader.GetDateTime(columnSet.CreatedColumn),
-                            reader.GetDateTime(columnSet.UpdatedColumn),
+                            metaData.Id,
+                            metaData.ContentType,
+                            metaData.Reference,
+                            metaData.Version,
+                            metaData.Created,
+                            metaData.Updated,
                             JObject.Load(jsonReader));
                     }
                     break;
                 case ChangeType.Update:
-                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)))
+                    ChangeLogRowMetaData metaData2 = columnSet.LoadMetaData(reader, area);
+                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)
+                               , new ChangeLogInjector(context, metaData2)))
                     {
                         return new UpdateOnChangeLogRow(context,
                             area,
                             token,
-                            reader.GetGuid(columnSet.IDColumn),
-                            reader.GetString(columnSet.ContentTypeColumn),
-                            reader.GetInt64(columnSet.RefColumn),
-                            reader.GetInt32(columnSet.VersionColumn),
-                            reader.GetDateTime(columnSet.CreatedColumn),
-                            reader.GetDateTime(columnSet.UpdatedColumn),
+                            metaData2.Id,
+                            metaData2.ContentType,
+                            metaData2.Reference,
+                            metaData2.Version,
+                            metaData2.Created,
+                            metaData2.Updated,
                             JObject.Load(jsonReader));
                     }
 
@@ -303,8 +310,32 @@ internal class SqlServerChangeLogColumnSet
     public int ActionColumn { get; set; }
 
     public int TokenColumn { get; set; }
-}
 
+    public ChangeLogRowMetaData LoadMetaData(SqlDataReader reader, string area)
+    {
+        return new ChangeLogRowMetaData()
+        {
+            Area = area,
+            Id = reader.GetGuid(IDColumn),
+            ContentType = reader.GetString(ContentTypeColumn),
+            Reference = reader.GetInt64(RefColumn),
+            Version = reader.GetInt32(VersionColumn),
+            Created = reader.GetDateTime(CreatedColumn),
+            Updated = reader.GetDateTime(UpdatedColumn),
+        };
+
+    }
+}
+public struct ChangeLogRowMetaData
+{
+    public string Area { get; set; }
+    public Guid Id { get; set; }
+    public string ContentType { get; set; }
+    public long Reference { get; set; }
+    public int Version { get;  set;}
+    public DateTime Created { get;  set;}
+    public DateTime Updated { get;  set;}
+}
 public interface IStorageAreaLogReader : IEnumerable<IChangeLogRow>, IDisposable
 {
 

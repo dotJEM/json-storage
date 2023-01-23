@@ -152,8 +152,8 @@ namespace DotJEM.Json.Storage.Test.Adapter
             observable.ForEachAsync(row => list.Add(row)).Wait();
 
             Assert.That(list.Count, Is.GreaterThanOrEqualTo(3));
-            Assert.That(list.OfType<CreateChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
-            Assert.That(list.OfType<UpdateChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
+            Assert.That(list.OfType<CreateOnChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
+            Assert.That(list.OfType<UpdateOnChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
             Assert.That(list.OfType<DeleteChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
         }
 
@@ -176,8 +176,8 @@ namespace DotJEM.Json.Storage.Test.Adapter
             {
                 List<IChangeLogRow> list = enumerator.ToList();
                 Assert.That(list.Count, Is.GreaterThanOrEqualTo(3));
-                Assert.That(list.OfType<CreateChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
-                Assert.That(list.OfType<UpdateChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
+                Assert.That(list.OfType<CreateOnChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
+                Assert.That(list.OfType<UpdateOnChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
                 Assert.That(list.OfType<DeleteChangeLogRow>().Count(), Is.GreaterThanOrEqualTo(1));
             }
         }
