@@ -52,7 +52,7 @@
   <ItemGroup>
     <Compile Include="Adapter\IStorageAreaHistory.cs" />
     <Compile Include="Adapter\IStorageAreaLog.cs" />
-    <Compile Include="Adapter\Observeable\IStorageAreaLogObserveable.cs" />
+    <Compile Include="Adapter\Observable\IStorageAreaLogObserveable.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeLogEntityRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeType.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\CreateChangeLogRow.cs" />
@@ -67,6 +67,7 @@
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeCount.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\IStorageChangeCollection.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\LogEntry.cs" />
+    <Compile Include="Adapter\ISqlServerStorageAreaLog.TableLifeCycle.cs" />
     <Compile Include="Configuration\IJObjectDecorator.cs" />
     <Compile Include="Configuration\IStorageAreaConfiguration.cs" />
     <Compile Include="Configuration\JsonField.cs" />

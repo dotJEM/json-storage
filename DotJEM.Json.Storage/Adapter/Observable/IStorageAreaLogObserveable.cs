@@ -1,49 +1,45 @@
 using System;
 using System.Collections;
-using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.SqlClient;
 using System.Data;
-using System.Diagnostics;
+using System.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using DotJEM.Json.Storage.Queries;
-using Newtonsoft.Json.Linq;
-using System.Runtime.Remoting.Contexts;
 
-namespace DotJEM.Json.Storage.Adapter.Observeable;
+namespace DotJEM.Json.Storage.Adapter.Observable;
 
-public interface IStorageAreaLogObserveable : IObservable<IChangeLogRow>
+public interface IStorageAreaLogObservable : IObservable<IChangeLogRow>
 {
 
 }
 
-public abstract class AbstractSqlServerStorageAreaLogObserveable : IStorageAreaLogObserveable
+public abstract class AbstractSqlServerStorageAreaLogObservable : IStorageAreaLogObservable
 {
     private readonly ConcurrentDictionary<Guid, IChangeObserverState> observers = new();
   
     public IDisposable Subscribe(IObserver<IChangeLogRow> observer)
     {
         return observers
-            .GetOrAdd(Guid.NewGuid(), id =>CreateObserverSubscribtion(id, observer))
+            .GetOrAdd(Guid.NewGuid(), id =>CreateObserverSubscription(id, observer))
             .Start(CancellationToken.None);
     }
 
     protected bool DetachObserver(Guid id) => observers.TryRemove(id, out _);
 
-    protected abstract IChangeObserverState CreateObserverSubscribtion(Guid id, IObserver<IChangeLogRow> observer);
+    protected abstract IChangeObserverState CreateObserverSubscription(Guid id, IObserver<IChangeLogRow> observer);
 }
 
-public class DefaultSqlServerStorageAreaLogObserveable : AbstractSqlServerStorageAreaLogObserveable
+public class DefaultSqlServerStorageAreaLogObservable : AbstractSqlServerStorageAreaLogObservable
 {
     private readonly SqlServerStorageAreaLog log;
     private readonly SqlServerStorageContext context;
     private readonly ICommandFactory commands;
     private readonly long generation;
 
-    public DefaultSqlServerStorageAreaLogObserveable(
+    public DefaultSqlServerStorageAreaLogObservable(
         SqlServerStorageAreaLog log, 
         SqlServerStorageArea area,
         SqlServerStorageContext context,
@@ -56,7 +52,7 @@ public class DefaultSqlServerStorageAreaLogObserveable : AbstractSqlServerStorag
     }
 
 
-    protected override IChangeObserverState CreateObserverSubscribtion(Guid id, IObserver<IChangeLogRow> observer)
+    protected override IChangeObserverState CreateObserverSubscription(Guid id, IObserver<IChangeLogRow> observer)
     {
         ChangeObserverState state = new ChangeObserverState(
             context,
@@ -269,7 +265,12 @@ internal class SqlServerChangeLogColumnSet
     public int TokenColumn { get; set; }
 }
 
-public class ChangeLogSqlDataReader : IEnumerable<IChangeLogRow>, IDisposable
+public interface IStorageAreaLogReader : IEnumerable<IChangeLogRow>, IDisposable
+{
+
+}
+
+public class ChangeLogSqlDataReader : IStorageAreaLogReader
 {
     private readonly SqlDataReader reader;
     private readonly ChangeLogRowFactory rowFactory;
