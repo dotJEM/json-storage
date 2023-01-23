@@ -174,7 +174,6 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
     {
         if (!TableExists)
             return new NullStorageAreaLogReader();
-            
 
         SqlConnection connection = context.Connection();
         connection.Open();
@@ -186,7 +185,7 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
             : area.Commands["SelectChangesNoDeletes"];
         command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = generation;
         command.Parameters.Add(new SqlParameter("count", SqlDbType.Int)).Value = int.MaxValue;
-        return new StorageAreaLogEnumerable(connection, command, EnumerateReader, gen => this.CurrentGeneration = gen);
+        return new StorageAreaLogReader(context, area.Name, connection, command, gen => this.CurrentGeneration = gen);
     }
 
 
@@ -289,33 +288,39 @@ internal class NullStorageAreaLogReader : IStorageAreaLogReader
 
     public void Dispose() {}
 }
-internal class StorageAreaLogEnumerable : IStorageAreaLogReader
+
+internal class StorageAreaLogReader : IStorageAreaLogReader
 {
     private readonly SqlConnection connection;
     private readonly SqlCommand command;
     private readonly SqlDataReader reader;
 
-    private readonly Func<SqlDataReader, IEnumerable<IChangeLogRow>> enumerateReader;
     private readonly Action<long> updateGen;
+    private readonly ChangeLogRowFactory rowFactory;
 
-    internal StorageAreaLogEnumerable(SqlConnection connection, SqlCommand command, Func<SqlDataReader, IEnumerable<IChangeLogRow>> enumerateReader, Action<long> updateGen)
+    internal StorageAreaLogReader(IStorageContext context, string area, SqlConnection connection, SqlCommand command, Action<long> updateGen)
     {
         this.connection = connection;
         this.command = command;
-        this.enumerateReader = enumerateReader;
         this.updateGen = updateGen;
         this.reader = command.ExecuteReader();
+        this.rowFactory = new ChangeLogRowFactory(context, area, SqlServerChangeLogColumnSet.FromReader(reader));
     }
 
     public IEnumerator<IChangeLogRow> GetEnumerator()
     {
-        return enumerateReader(reader)
-            .Select(ch =>
-            {
+        return EnumerateReader()
+            .Select(ch => {
                 updateGen(ch.Generation);
                 return ch;
             })
             .GetEnumerator();
+    }
+
+    private IEnumerable<IChangeLogRow> EnumerateReader()
+    {
+        while (reader.Read())
+            yield return rowFactory.CreateFrom(reader);
     }
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();

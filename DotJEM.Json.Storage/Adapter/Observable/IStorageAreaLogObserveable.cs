@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
 using DotJEM.Json.Storage.Queries;
+using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter.Observable;
 
@@ -209,13 +210,52 @@ public class ChangeLogRowFactory
         Enum.TryParse(reader.GetString(columnSet.ActionColumn), out ChangeType changeType);
         try
         {
-            ChangeLogRow row = changeType switch {
-                ChangeType.Create => new CreateChangeLogRow(context, area, token, reader.GetGuid(columnSet.IDColumn), reader.GetString(columnSet.ContentTypeColumn), reader.GetInt64(columnSet.RefColumn), reader.GetInt32(columnSet.VersionColumn), reader.GetDateTime(columnSet.CreatedColumn), reader.GetDateTime(columnSet.UpdatedColumn), reader.GetSqlBinary(columnSet.DataColumn).Value),
-                ChangeType.Update => new UpdateChangeLogRow(context, area, token, reader.GetGuid(columnSet.IDColumn), reader.GetString(columnSet.ContentTypeColumn), reader.GetInt64(columnSet.RefColumn), reader.GetInt32(columnSet.VersionColumn), reader.GetDateTime(columnSet.CreatedColumn), reader.GetDateTime(columnSet.UpdatedColumn), reader.GetSqlBinary(columnSet.DataColumn).Value),
-                ChangeType.Delete => new DeleteChangeLogRow(context, area, token, reader.GetGuid(columnSet.FidColumn)),
-                _ => throw new ArgumentOutOfRangeException()
-            };
-            return row;
+            switch (changeType)
+            {
+                case ChangeType.Create:
+                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)))
+                    {
+                        return new CreateOnChangeLogRow(context,
+                            area,
+                            token,
+                            reader.GetGuid(columnSet.IDColumn),
+                            reader.GetString(columnSet.ContentTypeColumn),
+                            reader.GetInt64(columnSet.RefColumn),
+                            reader.GetInt32(columnSet.VersionColumn),
+                            reader.GetDateTime(columnSet.CreatedColumn),
+                            reader.GetDateTime(columnSet.UpdatedColumn),
+                            JObject.Load(jsonReader));
+                    }
+                    break;
+                case ChangeType.Update:
+                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)))
+                    {
+                        return new UpdateOnChangeLogRow(context,
+                            area,
+                            token,
+                            reader.GetGuid(columnSet.IDColumn),
+                            reader.GetString(columnSet.ContentTypeColumn),
+                            reader.GetInt64(columnSet.RefColumn),
+                            reader.GetInt32(columnSet.VersionColumn),
+                            reader.GetDateTime(columnSet.CreatedColumn),
+                            reader.GetDateTime(columnSet.UpdatedColumn),
+                            JObject.Load(jsonReader));
+                    }
+
+                    break;
+                case ChangeType.Delete:
+                    return new DeleteChangeLogRow(
+                        context,
+                        area,
+                        token,
+                        reader.GetGuid(columnSet.FidColumn)
+                    );
+                    break;
+                case ChangeType.Faulty:
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
         }
         catch (Exception exception)
         {

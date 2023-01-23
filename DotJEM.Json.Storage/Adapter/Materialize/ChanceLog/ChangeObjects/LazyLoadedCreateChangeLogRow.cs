@@ -7,6 +7,8 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
 {
+
+
     public class CreateChangeLogRow : ChangeLogEntityRow
     {
         private readonly byte[] data;

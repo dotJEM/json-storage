@@ -55,7 +55,7 @@
     <Compile Include="Adapter\Observable\IStorageAreaLogObserveable.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeLogEntityRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\ChangeType.cs" />
-    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\CreateChangeLogRow.cs" />
+    <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\LazyLoadedCreateChangeLogRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\CreateOnChangeLogRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\DeleteChangeLogRow.cs" />
     <Compile Include="Adapter\Materialize\ChanceLog\ChangeObjects\FaultyChangeLogRow.cs" />
