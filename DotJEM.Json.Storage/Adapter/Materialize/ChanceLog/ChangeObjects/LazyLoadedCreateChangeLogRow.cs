@@ -8,8 +8,6 @@ using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
 {
-
-
     public class CreateChangeLogRow : ChangeLogEntityRow
     {
         private readonly byte[] data;
@@ -26,70 +24,7 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
         public override JsonReader OpenReader() => new InjectingJsonReader(Serializer.OpenReader(data), new ChangeLogEntityRowInjector(Context, this));
     }
 
-       public class ChangeLogInjector : IInjectingJsonReaderValues
-    {
-        private readonly ChangeLogRowMetaData data;
-
-        private readonly Dictionary<string, Func<ChangeLogRowMetaData, (JsonToken, object)>> mappers
-            = new Dictionary<string, Func<ChangeLogRowMetaData,(JsonToken, object)>>();
-
-        public int Count => mappers.Count;
-
-
-
-        public ChangeLogInjector(IStorageContext context, ChangeLogRowMetaData data)
-        {
-            this.data = data;
-            mappers[context.Configuration.Fields[JsonField.Id]] = RowMappers.ID_MAPPER;
-            mappers[context.Configuration.Fields[JsonField.Reference]] = RowMappers.REFERENCE_MAPPER;
-            mappers[context.Configuration.Fields[JsonField.Area]] = RowMappers.AREA_MAPPER;
-            mappers[context.Configuration.Fields[JsonField.Version]] = RowMappers.VERSION_MAPPER;
-            mappers[context.Configuration.Fields[JsonField.ContentType]] = RowMappers.CONTENT_TYPE_MAPPER;
-            mappers[context.Configuration.Fields[JsonField.Created]] = RowMappers.CREATED_MAPPER;
-            mappers[context.Configuration.Fields[JsonField.Updated]] = RowMappers.UPDATED_MAPPER;
-        }
-
-        public IEnumerator<(string, (JsonToken, object))> GetEnumerator()
-        {
-            foreach (KeyValuePair<string, Func<ChangeLogRowMetaData, (JsonToken, object)>> pair in mappers)
-                yield return (pair.Key, pair.Value(data));
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public bool TryGetValue(string key, out (JsonToken, object) value)
-        {
-            if (mappers.TryGetValue(key, out Func<ChangeLogRowMetaData, (JsonToken, object)> func))
-            {
-                value = func(data);
-                return true;
-            }
-
-            value = default;
-            return false;
-        }
-
-        public bool TryRemoveValue(string key, out (JsonToken, object) value)
-        {
-            return TryGetValue(key, out value) && mappers.Remove(key);
-        }
-
-        public void Clear()
-        {
-            mappers.Clear();
-        }
-
-        internal static  class RowMappers
-        {
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> ID_MAPPER = row => (JsonToken.String, row.Id.ToString());
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> REFERENCE_MAPPER = row => (JsonToken.String, Base36.Encode(row.Reference));
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> AREA_MAPPER = row => (JsonToken.String, row.Area);
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> VERSION_MAPPER = row => (JsonToken.Integer, row.Version);
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> CONTENT_TYPE_MAPPER = row => (JsonToken.String, row.ContentType);
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> CREATED_MAPPER = row => (JsonToken.Date, DateTime.SpecifyKind(row.Created, DateTimeKind.Utc));
-            internal static readonly Func<ChangeLogRowMetaData, (JsonToken, object)> UPDATED_MAPPER = row => (JsonToken.Date, DateTime.SpecifyKind(row.Updated, DateTimeKind.Utc));
-        }
-    }
+  
 
     public class ChangeLogEntityRowInjector : IInjectingJsonReaderValues
     {

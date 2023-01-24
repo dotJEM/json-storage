@@ -9,7 +9,9 @@ using System.Runtime.Remoting.Contexts;
 using System.Threading;
 using System.Threading.Tasks;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
+using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter.Observable;
@@ -192,16 +194,52 @@ public interface IChangeObserverState: IDisposable
     IChangeObserverState Start(CancellationToken cancellation);
 }
 
+public class Injector
+{
+    private readonly string idField;
+    private readonly string referenceField;
+    private readonly string areaField;
+    private readonly string versionField;
+    private readonly string contentTypeField;
+    private readonly string createdField;
+    private readonly string updatedField;
 
+
+    public Injector(IStorageContext context)
+    {
+        this.idField = context.Configuration.Fields[JsonField.Id];
+        this.referenceField = context.Configuration.Fields[JsonField.Reference];
+        this.areaField = context.Configuration.Fields[JsonField.Area];
+        this.versionField = context.Configuration.Fields[JsonField.Version];
+        this.contentTypeField = context.Configuration.Fields[JsonField.ContentType];
+        this.createdField = context.Configuration.Fields[JsonField.Created];
+        this.updatedField = context.Configuration.Fields[JsonField.Updated];
+    }
+
+    public JObject Inject(JObject obj, ChangeLogRowMetaData data)
+    {
+        obj[idField] = data.Id;
+        obj[referenceField] = Base36.Encode(data.Reference);
+        obj[areaField] = data.Area;
+        obj[versionField] = data.Version;
+        obj[contentTypeField] = data.ContentType;
+        obj[createdField] = DateTime.SpecifyKind(data.Created, DateTimeKind.Utc);
+        obj[updatedField] = DateTime.SpecifyKind(data.Updated, DateTimeKind.Utc);
+        return obj;
+    }
+
+}
 
 public class ChangeLogRowFactory
 {
     private readonly IStorageContext context;
     private readonly string area;
     private readonly SqlServerChangeLogColumnSet columnSet;
+    private readonly Injector injector;
 
     internal ChangeLogRowFactory(IStorageContext context, string area, SqlServerChangeLogColumnSet columnSet)
     {
+        this.injector = new Injector(context);
         this.context = context;
         this.area = area;
         this.columnSet = columnSet;
@@ -217,9 +255,9 @@ public class ChangeLogRowFactory
             {
                 case ChangeType.Create:
                     ChangeLogRowMetaData metaData = columnSet.LoadMetaData(reader, area);
-                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)
-                               , new ChangeLogInjector(context, metaData)))
+                    using (JsonReader r = context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value))
                     {
+                        JObject json = injector.Inject(JObject.Load(r), metaData);
                         return new CreateOnChangeLogRow(context,
                             area,
                             token,
@@ -229,14 +267,14 @@ public class ChangeLogRowFactory
                             metaData.Version,
                             metaData.Created,
                             metaData.Updated,
-                            JObject.Load(jsonReader));
+                            json);
+
                     }
-                    break;
                 case ChangeType.Update:
                     ChangeLogRowMetaData metaData2 = columnSet.LoadMetaData(reader, area);
-                    using (InjectingJsonReader jsonReader = new(context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value)
-                               , new ChangeLogInjector(context, metaData2)))
+                    using (JsonReader r = context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value))
                     {
+                        JObject json = injector.Inject(JObject.Load(r), metaData2);
                         return new UpdateOnChangeLogRow(context,
                             area,
                             token,
@@ -246,10 +284,10 @@ public class ChangeLogRowFactory
                             metaData2.Version,
                             metaData2.Created,
                             metaData2.Updated,
-                            JObject.Load(jsonReader));
+                            json);
+
                     }
 
-                    break;
                 case ChangeType.Delete:
                     return new DeleteChangeLogRow(
                         context,
