@@ -432,7 +432,7 @@ namespace DotJEM.Json.Storage.Queries
                 FROM ( 
 	                SELECT MAX([{id}]) as Token, [{fid}] 
 	                FROM {logTableFullName}
-	                WHERE [{id}] > @token AND [{id}] < @maxToken
+	                WHERE [{id}] > @token AND [{id}] <= (SELECT MAX({id}) FROM {logTableFullName})
 	                GROUP BY [{fid}] ) changelog
 
 	                JOIN {logTableFullName} changelogdata ON changelogdata.[{id}] = changelog.Token

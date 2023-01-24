@@ -181,10 +181,9 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         command.Connection = connection;
         command.CommandTimeout = context.SqlServerConfiguration.ReadCommandTimeout;
         command.CommandText = includeDeletes
-            ? area.Commands["SelectChangesWithDeletes"]
-            : area.Commands["SelectChangesNoDeletes"];
+            ? area.Commands["SelectChangesObserver"]
+            : area.Commands["SelectChangesObserverInit"];
         command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = generation;
-        command.Parameters.Add(new SqlParameter("count", SqlDbType.Int)).Value = int.MaxValue;
         return new StorageAreaLogReader(context, area.Name, connection, command, gen => this.CurrentGeneration = gen);
     }
 
