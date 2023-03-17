@@ -117,9 +117,25 @@ namespace DotJEM.Json.Storage.Adapter
 
             if (@from.HasValue)
             {
+                if (@to.HasValue)
+                {
+                    return InternalGet("SelectDeletedHistoryByContentTypeBetweenDate",
+                        new SqlParameter(StorageField.ContentType.ToString(), contentType),
+                        new SqlParameter("fromdate", @from.Value),
+                        new SqlParameter("todate", to.Value));
+                }
+
                 return InternalGet("SelectDeletedHistoryByContentTypeFromDate",
                     new SqlParameter(StorageField.ContentType.ToString(), contentType),
                     new SqlParameter(StorageField.Updated.ToString(), @from.Value));
+            } 
+            
+            if (@to.HasValue)
+            {
+
+                return InternalGet("SelectDeletedHistoryByContentTypeToDate",
+                    new SqlParameter(StorageField.ContentType.ToString(), contentType),
+                    new SqlParameter(StorageField.Updated.ToString(), @to.Value));
             }
             return InternalGet("SelectDeletedHistoryByContentType",
                 new SqlParameter(StorageField.ContentType.ToString(), contentType));

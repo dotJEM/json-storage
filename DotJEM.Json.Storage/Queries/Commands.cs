@@ -216,8 +216,10 @@ namespace DotJEM.Json.Storage.Queries
             self.SelectHistoryForByVersion = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{version}] = @{version}");
             self.SelectHistoryForFromDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] >= @{updated} ORDER BY [{version}] DESC;");
             self.SelectHistoryForToDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] <= @{updated} ORDER BY [{version}] DESC;");
-            self.SelectHistoryForBetweenDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [fromdate] >= @fromdate AND [todate] <= @todate ORDER BY [{version}] DESC;");
+            self.SelectHistoryForBetweenDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] >= @fromdate AND [{updated}] <= @todate ORDER BY [{version}] DESC;");
             self.SelectDeletedHistoryByContentTypeFromDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
+            self.SelectDeletedHistoryByContentTypeToDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] <= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
+            self.SelectDeletedHistoryByContentTypeBetweenDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @fromdate AND [{updated}] <= @todate AND [{type}] = @{type} ORDER BY [{version}];");
 
             //self.Delete = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
 

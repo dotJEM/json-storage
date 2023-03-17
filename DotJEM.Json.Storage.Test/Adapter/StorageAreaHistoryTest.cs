@@ -15,16 +15,17 @@ namespace DotJEM.Json.Storage.Test.Adapter
     [TestFixture]
     public class StorageAreaHistoryTest
     {
+        private const string HistorytestAreaName = "historytest";
 
         [Test]
         public void Get_OneCreate_ReturnsOneChange()
         {
-            TestContext.DropArea("historytest");
+            TestContext.DropArea(HistorytestAreaName);
 
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
-            context.Configure.Area("historytest").EnableHistory();
+            context.Configure.Area(HistorytestAreaName).EnableHistory();
 
-            IStorageArea area = context.Area("historytest");
+            IStorageArea area = context.Area(HistorytestAreaName);
 
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
@@ -44,12 +45,12 @@ namespace DotJEM.Json.Storage.Test.Adapter
         [Test]
         public void Get_TwoUpdates_ReturnsTwoChanges()
         {
-            TestContext.DropArea("historytest");
+            TestContext.DropArea(HistorytestAreaName);
 
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
-            context.Configure.Area("historytest").EnableHistory();
+            context.Configure.Area(HistorytestAreaName).EnableHistory();
 
-            IStorageArea area = context.Area("historytest");
+            IStorageArea area = context.Area(HistorytestAreaName);
 
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
@@ -69,12 +70,12 @@ namespace DotJEM.Json.Storage.Test.Adapter
         [Test]
         public void Delete_WithDateTime_DeletesFirstVersion()
         {
-            TestContext.DropArea("historytest");
+            TestContext.DropArea(HistorytestAreaName);
 
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
-            context.Configure.Area("historytest").EnableHistory();
+            context.Configure.Area(HistorytestAreaName).EnableHistory();
 
-            IStorageArea area = context.Area("historytest");
+            IStorageArea area = context.Area(HistorytestAreaName);
 
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
@@ -100,12 +101,12 @@ namespace DotJEM.Json.Storage.Test.Adapter
         [Test]
         public void Delete_WithTimeSpan_DeletesFirstVersion()
         {
-            TestContext.DropArea("historytest");
+            TestContext.DropArea(HistorytestAreaName);
 
             IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
-            context.Configure.Area("historytest").EnableHistory();
+            context.Configure.Area(HistorytestAreaName).EnableHistory();
 
-            IStorageArea area = context.Area("historytest");
+            IStorageArea area = context.Area(HistorytestAreaName);
 
             JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
             create["unique_field"] = Guid.NewGuid();
@@ -125,7 +126,39 @@ namespace DotJEM.Json.Storage.Test.Adapter
 
             area.History.Delete(DateTime.Now - cutoff);
 
+            DateTime yesterday = DateTime.Now.AddDays(-1);
+            DateTime tomorrow = DateTime.Now.AddDays(1);
+
             Assert.That(area.History.Get(id).ToList(), Has.Count.EqualTo(1));
+            Assert.That(area.History.Get(id, from: yesterday).ToList(), Has.Count.EqualTo(1));
+            Assert.That(area.History.Get(id, to: tomorrow).ToList(), Has.Count.EqualTo(1));
+            Assert.That(area.History.Get(id, from: yesterday, to: tomorrow).ToList(), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void Deleted_WithTimeSpan_DeletesFirstVersion()
+        {
+            TestContext.DropArea(HistorytestAreaName);
+
+            IStorageContext context = new SqlServerStorageContext(TestContext.ConnectionString);
+            context.Configure.Area(HistorytestAreaName).EnableHistory();
+
+            IStorageArea area = context.Area(HistorytestAreaName);
+
+            JObject create = JObject.Parse("{ name: 'Potatoes', count: 10 }");
+            create["unique_field"] = Guid.NewGuid();
+
+            JObject inserted = area.Insert("content", create);
+            area.Delete((Guid)inserted["$id"]);
+
+
+            DateTime yesterday = DateTime.Now.AddDays(-1);
+            DateTime tomorrow = DateTime.Now.AddDays(1);
+
+            Assert.That(area.History.GetDeleted("content").ToList(), Has.Count.EqualTo(1));
+            Assert.That(area.History.GetDeleted("content", from: yesterday).ToList(), Has.Count.EqualTo(1));
+            Assert.That(area.History.GetDeleted("content", to: tomorrow).ToList(), Has.Count.EqualTo(1));
+            Assert.That(area.History.GetDeleted("content", from: yesterday, to: tomorrow).ToList(), Has.Count.EqualTo(1));
         }
 
     }
