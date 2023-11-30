@@ -166,6 +166,8 @@ namespace DotJEM.Json.Storage.Queries
             this["SelectHistoryForToDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] <= @{updated} ORDER BY [{version}] DESC;");
             this["SelectHistoryForBetweenDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [fromdate] >= @fromdate AND [todate] <= @todate ORDER BY [{version}] DESC;");
             this["SelectDeletedHistoryByContentTypeFromDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
+            this["SelectDeletedHistoryByContentTypeToDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] <= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
+            this["SelectDeletedHistoryByContentTypeBetweenDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @fromdate AND [{updated}] <= @todate AND [{type}] = @{type} ORDER BY [{version}];");
 
             //this["Delete"] = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
 
