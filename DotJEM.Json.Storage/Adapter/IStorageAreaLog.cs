@@ -112,7 +112,7 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         this.indexes = new Lazy<Dictionary<string, IndexDefinition>>(() => LoadIndexes().ToDictionary(def => def.Name));
     }
 
-    public IStorageChangeCollection Insert(Guid id, JObject original, JObject changed, ChangeType action, SqlConnection connection, SqlTransaction transaction)
+    public IStorageChangeCollection Insert(Guid id, JObject original, JObject changed, ChangeType action, int size, SqlConnection connection, SqlTransaction transaction)
     {
         EnsureTable();
 
@@ -135,9 +135,9 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
 
         ChangeLogRow row = action switch
         {
-            ChangeType.Create => new CreateOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, changed),
-            ChangeType.Update => new UpdateOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, changed),
-            ChangeType.Delete => new DeleteOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, original),
+            ChangeType.Create => new CreateOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, changed, size),
+            ChangeType.Update => new UpdateOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, changed, size),
+            ChangeType.Delete => new DeleteOnChangeLogRow(context, area.Name, token, id, contentType, Base36.Decode(reference), version, created, updated, original, size),
             _ => throw new ArgumentOutOfRangeException()
         };
         return new StorageChangeCollection(area.Name, token, new List<IChangeLogRow> { row });

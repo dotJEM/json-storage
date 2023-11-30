@@ -274,7 +274,8 @@ public class ChangeLogRowFactory
                     }
                 case ChangeType.Update:
                     ChangeLogRowMetaData metaData2 = columnSet.LoadMetaData(reader, area);
-                    using (JsonReader r = context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DataColumn).Value))
+                    byte[] data2 = reader.GetSqlBinary(columnSet.DataColumn).Value;
+                    using (JsonReader r = context.Serializer.OpenReader(data2))
                     {
                         JObject json = injector.Inject(JObject.Load(r), metaData2);
                         return new UpdateOnChangeLogRow(context,
@@ -286,7 +287,8 @@ public class ChangeLogRowFactory
                             metaData2.Version,
                             metaData2.Created,
                             metaData2.Updated,
-                            json);
+                            json,
+                            data2.Length);
 
                     }
 
