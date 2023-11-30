@@ -35,7 +35,7 @@ namespace DotJEM.Json.Storage.Queries
         string this[string key] { get; set; }
     }
 
-    public class SqlServerCommandFactory : DynamicObject, ICommandFactory
+    public class SqlServerCommandFactory : ICommandFactory
     {
         private readonly Dictionary<string, object> commands = new Dictionary<string, object>();
 
@@ -47,21 +47,9 @@ namespace DotJEM.Json.Storage.Queries
 
         public AdvPropertyBag Vars { get; } = new AdvPropertyBag("{", "}");
 
-        public override bool TryGetMember(GetMemberBinder binder, out object result)
-        {
-            commands.TryGetValue(binder.Name, out result);
-            return true;
-        }
-
-        public override bool TrySetMember(SetMemberBinder binder, object value)
-        {
-            commands[binder.Name] = value;
-            return true;
-        }
 
         public SqlServerCommandFactory(string database, string table)
         {
-            dynamic self = this;
             //TODO: Now er can use C#'s new interpolation feature.
             Vars.Add("id", StorageField.Id)
                 .Add("ref", StorageField.Reference)
@@ -88,7 +76,7 @@ namespace DotJEM.Json.Storage.Queries
 
 
             //TODO: Replace with a command builder pattern.
-            self.Insert = Vars.Format(
+            this["Insert"] = Vars.Format(
                 "INSERT INTO {tableFullName} ( [{version}], [{type}], [{created}], [{updated}], [{data}], [{ref}] ) "
                 + "OUTPUT INSERTED.* "
                 + "SELECT [next_{version}], [next_{type}], [next_{created}], [next_{updated}], [next_{data}], [next_{ref}] "
@@ -99,7 +87,7 @@ namespace DotJEM.Json.Storage.Queries
                 + "           OUTPUT 1, @{type}, @{created}, @{updated}, @{data}, INSERTED.Seed as [{ref}] ) "
                 + "        as TEMP( [next_{version}], [next_{type}], [next_{created}], [next_{updated}], [next_{data}], [next_{ref}] );");
 
-            self.Update = Vars.Format(
+            this["Update"] = Vars.Format(
                 "UPDATE {tableFullName} SET [{version}] = [{version}] + 1, [{updated}] = @{updated}, [{data}] = @{data}"
                           + " OUTPUT"
                           + "   DELETED.[{id}] as [DELETED_{id}], DELETED.[{ref}] as [DELETED_{ref}], DELETED.[{version}] as [DELETED_{version}], "
@@ -109,21 +97,21 @@ namespace DotJEM.Json.Storage.Queries
                           + "   INSERTED.[{type}] as [INSERTED_{type}], INSERTED.[{created}] as [INSERTED_{created}], "
                           + "   INSERTED.[{updated}] as [INSERTED_{updated}], INSERTED.[{data}] as [INSERTED_{data}]"
                           + " WHERE [{id}] = @{id};");
-            self.Delete = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
+            this["Delete"] = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
 
             //TODO: Requires paging!
-            self.Count = Vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName};");
-            self.CountByContentType = Vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName} WHERE [{type}] = @{type};");
+            this["Count"] = Vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName};");
+            this["CountByContentType"] = Vars.Format("SELECT COUNT_BIG([{id}]) FROM {tableFullName} WHERE [{type}] = @{type};");
 
-            self.SelectAll = Vars.Format("SELECT * FROM {tableFullName} ORDER BY [{created}];");
+            this["SelectAll"] = Vars.Format("SELECT * FROM {tableFullName} ORDER BY [{created}];");
             //TODO: This requires a better aproach as it puts responsibility of constructing queries outside of the Commands class (which is a horrible class anyways).
-            self.SelectAllByGuids = Vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] IN ( $$$INS$$$ ) ORDER BY [{created}];");
+            this["SelectAllByGuids"] = Vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] IN ( $$$INS$$$ ) ORDER BY [{created}];");
 
-            self.SelectAllByContentType = Vars.Format("SELECT * FROM {tableFullName} WHERE [{type}] = @{type} ORDER BY [{created}];");
+            this["SelectAllByContentType"] = Vars.Format("SELECT * FROM {tableFullName} WHERE [{type}] = @{type} ORDER BY [{created}];");
 
-            self.SelectSingle = Vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
+            this["SelectSingle"] = Vars.Format("SELECT * FROM {tableFullName} WHERE [{id}] = @{id} ORDER BY [{created}];");
 
-            self.SelectAllPaged = Vars.Format(@"
+            this["SelectAllPaged"] = Vars.Format(@"
                 SELECT  *
                 FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [{created}] ) AS rn, *
                           FROM      {tableFullName}
@@ -133,7 +121,7 @@ namespace DotJEM.Json.Storage.Queries
             ");
 
 
-            self.SelectAllPagedByContentType = Vars.Format(@"
+            this["SelectAllPagedByContentType"] = Vars.Format(@"
                 SELECT  *
                 FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [{created}] ) AS rn, *
                           FROM      {tableFullName}
@@ -143,47 +131,7 @@ namespace DotJEM.Json.Storage.Queries
                     AND rn < @rowend
             ");
 
-            /*
-            Table Spec:
-                Name: 
-                  {tableName}
-
-                Columns:
-                  {id}] uniqueidentifier NOT NULL
-                  {ref}] bigint NOT NULL
-                  {version} int NOT NULL
-                  {type} varchar(256) NOT NULL
-                  {created} datetime NOT NULL
-                  {updated} datetime NOT NULL
-                  {data} varbinary(max) NOT NULL
-                  RV rowversion NOT NULL
-                  
-                Constraints:
-                  PK_{tableName} PRIMARY KEY CLUSTERED ( Id ASC )
-                    With:
-                      PAD_INDEX OFF
-                      STATISTICS_NORECOMPUTE = OFF
-                      IGNORE_DUP_KEY = OFF
-                      ALLOW_ROW_LOCKS = ON
-                      ALLOW_PAGE_LOCKS = ON
-            
-            */
-
-            //dynamic spec = null;// = new spec("");
-
-            //spec
-            //    .Column("id", "uniqueidentifier", "not null")
-            //    .Column("ref", "uniqueidentifier", "not null")
-            //    .Column("version", "uniqueidentifier", "not null")
-            //    .Column("type", "uniqueidentifier", "not null")
-            //    .Column("updated", "uniqueidentifier", "not null")
-            //    .Column("data", "uniqueidentifier", "not null")
-            //    .Column("RV", "uniqueidentifier", "not null")
-            //    .Constraint()
-            //    .Index();
-
-
-            self.CreateTable = Vars.Format(
+            this["CreateTable"] = Vars.Format(
                 @"CREATE TABLE [dbo].[{tableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
                           [{ref}] [bigint] NOT NULL,
@@ -200,30 +148,30 @@ namespace DotJEM.Json.Storage.Queries
 
                         ALTER TABLE [dbo].[{tableName}] ADD  CONSTRAINT [DF_{tableName}_{id}]  DEFAULT (NEWSEQUENTIALID()) FOR [{id}];");
 
-            self.TableExists = Vars.Format(
+            this["TableExists"] = Vars.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{tableName}'");
 
 
             // HISTORY STUFF
-            self.InsertHistory = Vars.Format("INSERT INTO {historyTableFullName} ([{fid}], [{ref}], [{version}], [{type}], [{deleted}], [{created}], [{updated}], [{data}])"
+            this["InsertHistory"] = Vars.Format("INSERT INTO {historyTableFullName} ([{fid}], [{ref}], [{version}], [{type}], [{deleted}], [{created}], [{updated}], [{data}])"
                                            + " VALUES (@{fid}, @{ref}, @{version}, @{type}, @{deleted}, @{created}, @{updated}, @{data});");
             //TODO: Requires paging!
-            self.SelectHistoryFor = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} ORDER BY [{version}] DESC;");
-            self.SelectDeletedHistoryByContentType = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{type}] = @{type} ORDER BY [{version}];");
+            this["SelectHistoryFor"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} ORDER BY [{version}] DESC;");
+            this["SelectDeletedHistoryByContentType"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{type}] = @{type} ORDER BY [{version}];");
 
-            self.SelectHistoryForByVersion = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{version}] = @{version}");
-            self.SelectHistoryForFromDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] >= @{updated} ORDER BY [{version}] DESC;");
-            self.SelectHistoryForToDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] <= @{updated} ORDER BY [{version}] DESC;");
-            self.SelectHistoryForBetweenDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [fromdate] >= @fromdate AND [todate] <= @todate ORDER BY [{version}] DESC;");
-            self.SelectDeletedHistoryByContentTypeFromDate = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
+            this["SelectHistoryForByVersion"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{version}] = @{version}");
+            this["SelectHistoryForFromDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] >= @{updated} ORDER BY [{version}] DESC;");
+            this["SelectHistoryForToDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [{updated}] <= @{updated} ORDER BY [{version}] DESC;");
+            this["SelectHistoryForBetweenDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{fid}] = @{fid} AND [fromdate] >= @fromdate AND [todate] <= @todate ORDER BY [{version}] DESC;");
+            this["SelectDeletedHistoryByContentTypeFromDate"] = Vars.Format("SELECT * FROM {historyTableFullName} WHERE [{deleted}] = 1 AND [{updated}] >= @{updated} AND [{type}] = @{type} ORDER BY [{version}];");
 
-            //self.Delete = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
+            //this["Delete"] = Vars.Format("DELETE FROM {tableFullName} OUTPUT DELETED.* WHERE [{id}] = @{id};");
 
-            self.DeleteHistoryByDate = Vars.Format("DELETE FROM [dbo].[{historyTableName}] WHERE [{updated}] < @{updated};");
+            this["DeleteHistoryByDate"] = Vars.Format("DELETE FROM [dbo].[{historyTableName}] WHERE [{updated}] < @{updated};");
 
-            self.CreateHistoryTable = Vars.Format(
+            this["CreateHistoryTable"] = Vars.Format(
                 @"CREATE TABLE [dbo].[{historyTableName}] (
                           [{id}] [uniqueidentifier] NOT NULL,
                           [{fid}] [uniqueidentifier] NOT NULL,
@@ -249,13 +197,13 @@ namespace DotJEM.Json.Storage.Queries
 
                         ALTER TABLE [dbo].[{historyTableName}] NOCHECK CONSTRAINT [FK_{historyTableName}_{tableName}];");
 
-            self.HistoryTableExists = Vars.Format(
+            this["HistoryTableExists"] = Vars.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                             WHERE TABLE_SCHEMA = 'dbo'
                                                 AND TABLE_NAME = '{historyTableName}'");
 
             // SEED STUFF
-            self.CreateSeedTable = Vars.Format(
+            this["CreateSeedTable"] = Vars.Format(
                 @"CREATE TABLE [dbo].[{seedTableName}](
 	                        [{id}] [uniqueidentifier] NOT NULL CONSTRAINT [DF_{seedTableName}_Id] DEFAULT (newid()),
 	                        [{type}] [varchar](256) NOT NULL,
@@ -271,7 +219,7 @@ namespace DotJEM.Json.Storage.Queries
                             ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
                         ) ON [PRIMARY]");
 
-            self.SeedTableExists = Vars.Format(
+            this["SeedTableExists"] = Vars.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{seedTableName}'");
@@ -280,7 +228,7 @@ namespace DotJEM.Json.Storage.Queries
             // logTableFullName
 
             // CHANGE LOG
-            self.CreateLogTable = Vars.Format(
+            this["CreateLogTable"] = Vars.Format(
                 @"CREATE TABLE [dbo].[{logTableName}] (
                           [{id}] [bigint] IDENTITY(1,1) NOT NULL,
                           [{fid}] [uniqueidentifier] NULL,
@@ -293,15 +241,15 @@ namespace DotJEM.Json.Storage.Queries
                         ) ON [PRIMARY];");
 
 
-            self.LogTableExists = Vars.Format(
+            this["LogTableExists"] = Vars.Format(
                 @"SELECT TOP 1 COUNT(*) FROM INFORMATION_SCHEMA.TABLES
                                WHERE TABLE_SCHEMA = 'dbo'
                                  AND TABLE_NAME = '{logTableName}'");
 
-            self.SelectChanges = Vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
-            self.SelectMaxGeneration = Vars.Format("SELECT MAX([{id}]) FROM {logTableFullName}");
+            this["SelectChanges"] = Vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
+            this["SelectMaxGeneration"] = Vars.Format("SELECT MAX([{id}]) FROM {logTableFullName}");
 
-            self.SelectChangesWithDeletes = Vars.Format(@"
+            this["SelectChangesWithDeletes"] = Vars.Format(@"
                 SELECT TOP (@count)
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
@@ -326,7 +274,7 @@ namespace DotJEM.Json.Storage.Queries
                 ORDER BY Token
             ");
 
-            self.SelectChangesNoDeletes = Vars.Format(@"
+            this["SelectChangesNoDeletes"] = Vars.Format(@"
                 SELECT TOP (@count)
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
@@ -353,12 +301,12 @@ namespace DotJEM.Json.Storage.Queries
                 ORDER BY Token
             ");
 
-            self.InsertChange = Vars.Format(
+            this["InsertChange"] = Vars.Format(
                 "INSERT INTO {logTableFullName} ( [{fid}], [{action}], [{data}] ) "
                 + "OUTPUT INSERTED.* "
                 + "VALUES( @{fid}, @{action}, @{data} );");
 
-            self.ChangeLogIdFidIndex = Vars.Format(@"
+            this["ChangeLogIdFidIndex"] = Vars.Format(@"
                 CREATE NONCLUSTERED INDEX [{logTableName}.id_fid_index] ON {logTableFullName}
                 (
 	                [Id] ASC,
@@ -366,7 +314,7 @@ namespace DotJEM.Json.Storage.Queries
                 ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
             ");
 
-            self.ChangeLogIdFidActionIndex = Vars.Format(@"
+            this["ChangeLogIdFidActionIndex"] = Vars.Format(@"
                 CREATE NONCLUSTERED INDEX [{logTableName}.id_fid_action_index] ON {logTableFullName}
                 (
 	                [Id] ASC,
@@ -375,7 +323,7 @@ namespace DotJEM.Json.Storage.Queries
                 ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
             ");
 
-            self.ChangeLogFidIdIndex = Vars.Format(@"
+            this["ChangeLogFidIdIndex"] = Vars.Format(@"
                 CREATE NONCLUSTERED INDEX [{logTableName}.fid_id_index] ON {logTableFullName}
                 (
 	                [Fid] ASC,
@@ -383,14 +331,14 @@ namespace DotJEM.Json.Storage.Queries
                 ) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
             ");
 
-            self.ChangeLogIndexes = Vars.Format(@"
+            this["ChangeLogIndexes"] = Vars.Format(@"
                 SELECT * 
                 FROM sys.indexes 
                 WHERE name LIKE '{logTableName}.%' AND object_id = OBJECT_ID('{logTableFullName}');
             ");
 
             
-            self.SelectChangesObserver = Vars.Format(@"
+            this["SelectChangesObserver"] = Vars.Format(@"
                 SELECT
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
@@ -415,7 +363,7 @@ namespace DotJEM.Json.Storage.Queries
                 ORDER BY Token
             ");
 
-            self.SelectChangesObserverInit = Vars.Format(@"
+            this["SelectChangesObserverInit"] = Vars.Format(@"
                 SELECT
 	                {tableFullName}.Id,
 	                {tableFullName}.Reference, 
