@@ -86,7 +86,6 @@ namespace DotJEM.Json.Storage.Adapter
             {
                 if (to.HasValue)
                 {
-
                     return InternalGet("SelectHistoryForBetweenDate",
                         new SqlParameter(HistoryField.Fid.ToString(), guid),
                         new SqlParameter("fromdate", @from.Value),

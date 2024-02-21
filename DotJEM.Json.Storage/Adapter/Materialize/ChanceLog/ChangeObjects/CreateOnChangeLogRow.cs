@@ -9,12 +9,13 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
     {
         private readonly JObject data;
         public override ChangeType Type => ChangeType.Create;
-        public override int Size => Marshal.SizeOf(data);
+        public override int Size { get; }
 
-        public CreateOnChangeLogRow(IStorageContext context, string area, long token, Guid id, string contentType, long reference, int version, DateTime created, DateTime updated, JObject data)
+        public CreateOnChangeLogRow(IStorageContext context, string area, long token, Guid id, string contentType, long reference, int version, DateTime created, DateTime updated, JObject data, int size)
             : base(context, area, token, id, contentType, reference, version, created, updated)
         {
             this.data = data;
+            this.Size = size;
         }
 
         public override JObject CreateEntity() => data;
@@ -25,12 +26,13 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
     {
         private readonly JObject data;
         public override ChangeType Type => ChangeType.Update;
-        public override int Size => Marshal.SizeOf(data);
+        public override int Size { get; }
 
-        public UpdateOnChangeLogRow(IStorageContext context, string area, long token, Guid id, string contentType, long reference, int version, DateTime created, DateTime updated, JObject data)
+        public UpdateOnChangeLogRow(IStorageContext context, string area, long token, Guid id, string contentType, long reference, int version, DateTime created, DateTime updated, JObject data, int size)
             : base(context, area, token, id, contentType, reference, version, created, updated)
         {
             this.data = data;
+            this.Size = size;
         }
 
         public override JObject CreateEntity() => data;
@@ -41,12 +43,13 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
     {
         private readonly JObject data;
         public override ChangeType Type => ChangeType.Delete;
-        public override int Size => Marshal.SizeOf(data);
+        public override int Size { get; }
 
-        public DeleteOnChangeLogRow(IStorageContext context, string area, long token, Guid id, string contentType, long reference, int version, DateTime created, DateTime updated, JObject data)
+        public DeleteOnChangeLogRow(IStorageContext context, string area, long token, Guid id, string contentType, long reference, int version, DateTime created, DateTime updated, JObject data, int size)
             : base(context, area, token, id, contentType, reference, version, created, updated)
         {
             this.data = data;
+            this.Size = size;
         }
 
         public override JObject CreateEntity() => data;

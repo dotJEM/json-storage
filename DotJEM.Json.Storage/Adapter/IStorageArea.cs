@@ -154,6 +154,7 @@ namespace DotJEM.Json.Storage.Adapter
             using SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadUncommitted);
             
             JObject insert;
+            byte[] serialized = context.Serializer.Serialize(jsonWithMetadata);
             using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
             {
                 DateTime created = DateTime.UtcNow;
@@ -161,7 +162,7 @@ namespace DotJEM.Json.Storage.Adapter
                 command.Parameters.Add(new SqlParameter(StorageField.ContentType.ToString(), SqlDbType.VarChar)).Value = contentType;
                 command.Parameters.Add(new SqlParameter(StorageField.Created.ToString(), SqlDbType.DateTime)).Value = created;
                 command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = created;
-                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = serialized;
 
                 using (SqlDataReader reader = command.ExecuteReader())
                 {
@@ -169,7 +170,7 @@ namespace DotJEM.Json.Storage.Adapter
                     reader.Close();
                 }
             }
-            log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create, connection, transaction);
+            log.Insert((Guid)insert[context.Configuration.Fields[JsonField.Id]], null, insert, ChangeType.Create, serialized.Length, connection, transaction);
             transaction.Commit();
             return insert;
         }
@@ -213,12 +214,13 @@ namespace DotJEM.Json.Storage.Adapter
             using SqlTransaction transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
             JObject deleted;
             JObject update;
+            byte[] serialized = context.Serializer.Serialize(jsonWithMetadata);
             using (SqlCommand command = new SqlCommand { Connection = connection, Transaction = transaction })
             {
                 DateTime updateTime = DateTime.UtcNow;
                 command.CommandText = Commands["Update"];
                 command.Parameters.Add(new SqlParameter(StorageField.Updated.ToString(), SqlDbType.DateTime)).Value = updateTime;
-                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(jsonWithMetadata);
+                command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = serialized;
                 command.Parameters.Add(new SqlParameter(StorageField.Id.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
 
                 using (SqlDataReader reader = command.ExecuteReader())
@@ -235,7 +237,7 @@ namespace DotJEM.Json.Storage.Adapter
                 }
             }
 
-            log.Insert(id, deleted, update, ChangeType.Update, connection, transaction);
+            log.Insert(id, deleted, update, ChangeType.Update, serialized.Length, connection, transaction);
             history?.Create(deleted, false, connection, transaction);
 
             transaction.Commit();
@@ -263,7 +265,7 @@ namespace DotJEM.Json.Storage.Adapter
             if (deleted == null)
                 return null;
 
-            log.Insert(guid, deleted, null, ChangeType.Delete, connection, transaction);
+            log.Insert(guid, deleted, null, ChangeType.Delete, 0, connection, transaction);
             history?.Create(deleted, true, connection, transaction);
 
             transaction.Commit();
