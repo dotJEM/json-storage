@@ -14,7 +14,6 @@ namespace DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects
         ChangeType Type { get; }
         JObject CreateEntity();
 
-
         /// <summary>
         /// Opens a JsonReader for the data in the recorded change
         /// </summary>

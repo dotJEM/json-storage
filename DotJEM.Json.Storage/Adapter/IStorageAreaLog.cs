@@ -14,6 +14,7 @@ using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Adapter.Observable;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter;
@@ -234,12 +235,14 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         int idColumn = reader.GetOrdinal(StorageField.Id.ToString());
         int fidColumn = reader.GetOrdinal(StorageField.Fid.ToString());
         int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
+        int diffColumn = reader.GetOrdinal("Diff");
 
         int refColumn = reader.GetOrdinal(StorageField.Reference.ToString());
         int versionColumn = reader.GetOrdinal(StorageField.Version.ToString());
         int contentTypeColumn = reader.GetOrdinal(StorageField.ContentType.ToString());
         int createdColumn = reader.GetOrdinal(StorageField.Created.ToString());
         int updatedColumn = reader.GetOrdinal(StorageField.Updated.ToString());
+        string diffFieldName = context.Configuration.Fields[JsonField.ContentType];
 
         while (reader.Read())
         {
@@ -253,9 +256,18 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
                     ChangeLogRow row = changeType switch {
                         ChangeType.Create => new CreateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
                         ChangeType.Update => new UpdateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
-                        ChangeType.Delete => new DeleteChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn)),
+                        ChangeType.Delete => new DeleteChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn), ExtractContentType(reader.GetSqlBinary(diffColumn).Value)),
                         _ => throw new ArgumentOutOfRangeException()
                     };
+
+                    string ExtractContentType(byte[] value)
+                    {
+                        using JsonReader r = context.Serializer.OpenReader(value);
+                        JObject json = JObject.Load(r);
+                        return  json.Property(diffFieldName)?.ToObject<string>()
+                                             ?? string.Empty;
+                    }
+
                     return row;
                 }
                 catch (Exception exception)
@@ -296,14 +308,21 @@ internal class StorageAreaLogReader : IStorageAreaLogReader
 
     private readonly Action<long> updateGen;
     private readonly ChangeLogRowFactory rowFactory;
+    private readonly string diffFieldName;
 
-    internal StorageAreaLogReader(IStorageContext context, string area, SqlConnection connection, SqlCommand command, Action<long> updateGen)
+    internal StorageAreaLogReader(
+        IStorageContext context,
+        string area, 
+        SqlConnection connection,
+        SqlCommand command,
+        Action<long> updateGen)
     {
         this.connection = connection;
         this.command = command;
         this.updateGen = updateGen;
         this.reader = command.ExecuteReader();
-        this.rowFactory = new ChangeLogRowFactory(context, area, SqlServerChangeLogColumnSet.FromReader(reader));
+        this.rowFactory = new ChangeLogRowFactory(context, area, context.Configuration.Fields[JsonField.ContentType], SqlServerChangeLogColumnSet.FromReader(reader));
+
     }
 
     public IEnumerator<IChangeLogRow> GetEnumerator()

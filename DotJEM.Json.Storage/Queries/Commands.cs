@@ -315,7 +315,8 @@ namespace DotJEM.Json.Storage.Queries
 
 	                changelogdata.[Action] AS [Action],
 	                changelog.[Token],
-	                changelog.[{fid}]
+	                changelog.[{fid}],
+                    changelogdata.[Data] as Diff
 
                 FROM ( 
 	                SELECT MAX([{id}]) as Token, [{fid}] 
@@ -340,7 +341,8 @@ namespace DotJEM.Json.Storage.Queries
 
 	                changelogdata.[Action] AS [Action],
 	                changelog.[Token],
-	                changelog.[{fid}]
+	                changelog.[{fid}],
+                    changelogdata.[Data] as Diff
 
                 FROM ( 
 	                SELECT MAX([{id}]) as Token, [{fid}] 
@@ -404,7 +406,8 @@ namespace DotJEM.Json.Storage.Queries
 
 	                changelogdata.[Action] AS [Action],
 	                changelog.[Token],
-	                changelog.[{fid}]
+	                changelog.[{fid}],
+                    changelogdata.[Data] as Diff
 
                 FROM ( 
 	                SELECT MAX([{id}]) as Token, [{fid}] 
@@ -429,7 +432,8 @@ namespace DotJEM.Json.Storage.Queries
 
 	                changelogdata.[Action] AS [Action],
 	                changelog.[Token],
-	                changelog.[{fid}]
+	                changelog.[{fid}],
+                    changelogdata.[Data] as Diff
 
                 FROM ( 
 	                SELECT MAX([{id}]) as Token, [{fid}] 

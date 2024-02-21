@@ -234,14 +234,16 @@ public class ChangeLogRowFactory
 {
     private readonly IStorageContext context;
     private readonly string area;
+    private readonly string diffFieldName;
     private readonly SqlServerChangeLogColumnSet columnSet;
     private readonly Injector injector;
 
-    internal ChangeLogRowFactory(IStorageContext context, string area, SqlServerChangeLogColumnSet columnSet)
+    internal ChangeLogRowFactory(IStorageContext context, string area, string diffFieldName, SqlServerChangeLogColumnSet columnSet)
     {
         this.injector = new Injector(context);
         this.context = context;
         this.area = area;
+        this.diffFieldName = diffFieldName;
         this.columnSet = columnSet;
     }
 
@@ -289,12 +291,23 @@ public class ChangeLogRowFactory
                     }
 
                 case ChangeType.Delete:
-                    return new DeleteChangeLogRow(
-                        context,
-                        area,
-                        token,
-                        reader.GetGuid(columnSet.FidColumn)
-                    );
+                    using (JsonReader r = context.Serializer.OpenReader(reader.GetSqlBinary(columnSet.DiffColumn).Value))
+                    {
+
+                        JObject json = JObject.Load(r);
+                        string contentType = json.Property(diffFieldName)?.ToObject<string>()
+                            ?? string.Empty;
+
+                        return new DeleteChangeLogRow(
+                            context,
+                            area,
+                            token,
+                            reader.GetGuid(columnSet.FidColumn),
+                            contentType
+                        );
+
+                    }
+
                     break;
                 case ChangeType.Faulty:
                 default:
@@ -326,6 +339,8 @@ internal class SqlServerChangeLogColumnSet
             ContentTypeColumn = reader.GetOrdinal(StorageField.ContentType.ToString()),
             CreatedColumn = reader.GetOrdinal(StorageField.Created.ToString()),
             UpdatedColumn = reader.GetOrdinal(StorageField.Updated.ToString()),
+            DiffColumn = reader.GetOrdinal("Diff"),
+
         };
     }
 
@@ -348,6 +363,7 @@ internal class SqlServerChangeLogColumnSet
     public int ActionColumn { get; set; }
 
     public int TokenColumn { get; set; }
+    public int DiffColumn { get; set; }
 
     public ChangeLogRowMetaData LoadMetaData(SqlDataReader reader, string area)
     {
@@ -387,7 +403,7 @@ public class ChangeLogSqlDataReader : IStorageAreaLogReader
     public ChangeLogSqlDataReader(IStorageContext context, string area, SqlDataReader reader)
     {
         this.reader = reader;
-        this.rowFactory = new ChangeLogRowFactory(context, area, SqlServerChangeLogColumnSet.FromReader(reader));
+        this.rowFactory = new ChangeLogRowFactory(context, area, context.Configuration.Fields[JsonField.ContentType], SqlServerChangeLogColumnSet.FromReader(reader));
     }
     public IEnumerator<IChangeLogRow> GetEnumerator()
     {
