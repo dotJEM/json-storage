@@ -81,6 +81,7 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
     private bool initialized;
     private readonly SqlServerStorageArea area;
     private readonly SqlServerStorageContext context;
+    private readonly Lazy<IChangeLogDataProvider> changeLogDataProvider;
     private readonly object padlock = new();
 
     public long CurrentGeneration { get; private set; } = -1;
@@ -111,6 +112,7 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         this.context = context;
 
         this.indexes = new Lazy<Dictionary<string, IndexDefinition>>(() => LoadIndexes().ToDictionary(def => def.Name));
+        changeLogDataProvider = new Lazy<IChangeLogDataProvider>(() => context.SqlServerConfiguration[area.Name].ChangeDataProvider);
     }
 
     public IStorageChangeCollection Insert(Guid id, JObject original, JObject changed, ChangeType action, int size, SqlConnection connection, SqlTransaction transaction)
@@ -121,7 +123,7 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         command.CommandText = area.Commands["InsertChange"];
         command.Parameters.Add(new SqlParameter(StorageField.Fid.ToString(), SqlDbType.UniqueIdentifier)).Value = id;
         command.Parameters.Add(new SqlParameter(LogField.Action.ToString(), SqlDbType.VarChar)).Value = action.ToString();
-        command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(Diff(original, changed));
+        command.Parameters.Add(new SqlParameter(StorageField.Data.ToString(), SqlDbType.VarBinary)).Value = context.Serializer.Serialize(changeLogDataProvider.Value.Diff(original, changed));
 
         using SqlDataReader reader = command.ExecuteReader();
         reader.Read();
@@ -143,17 +145,7 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         };
         return new StorageChangeCollection(area.Name, token, new List<IChangeLogRow> { row });
     }
-
-    private JObject Diff(JObject original, JObject changed)
-    {
-        JObject either = original ?? changed;
-        JObject change = new JObject();
-        change[context.Configuration.Fields[JsonField.ContentType]] = either[context.Configuration.Fields[JsonField.ContentType]];
-        //TODO: Implemnt simple diff (record changed properties)
-        //      - Could also use this for change details...
-        return change;
-    }
-
+    
     public IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000)
     {
         if (!TableExists)
