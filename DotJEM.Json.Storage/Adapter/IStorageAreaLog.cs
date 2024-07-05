@@ -16,6 +16,7 @@ using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static DotJEM.Json.Storage.Adapter.Materialize.SqlServerJsonEntityFactory;
 
 namespace DotJEM.Json.Storage.Adapter;
 
@@ -74,6 +75,11 @@ public interface IStorageAreaLog
     /// <param name="includeDeletes"></param>
     /// <returns></returns>
     IStorageAreaLogObservable OpenObservable(long initialGeneration = 0, bool includeDeletes = true);
+
+    /// <summary>
+    /// Allows getting pure log entries for a changelog for a specific document.
+    /// </summary>
+    IEnumerable<ChangeLogEntry> GetLogEntries(Guid fid, int count = 5000, long generation = 0);
 }
 
 public partial class SqlServerStorageAreaLog : IStorageAreaLog
@@ -145,7 +151,26 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
         };
         return new StorageChangeCollection(area.Name, token, new List<IChangeLogRow> { row });
     }
-    
+
+    public IEnumerable<ChangeLogEntry> GetLogEntries(Guid fid, int count = 5000, long generation = 0)
+    {
+        if (!TableExists)
+            return [];
+
+        using SqlConnection connection = context.Connection();
+        connection.Open();
+        using SqlCommand command = new();
+        command.Connection = connection;
+        command.CommandTimeout = context.SqlServerConfiguration.ReadCommandTimeout;
+        command.CommandText = area.Commands["SelectChangesPureById"];
+        command.Parameters.Add(new SqlParameter("token", SqlDbType.BigInt)).Value = generation;
+        command.Parameters.Add(new SqlParameter("count", SqlDbType.Int)).Value = count;
+        command.Parameters.Add(new SqlParameter("fid", SqlDbType.UniqueIdentifier)).Value = fid;
+
+        using SqlDataReader reader = command.ExecuteReader();
+        return EnumeratePureReader(reader).ToList();
+    }
+
     public IStorageChangeCollection Get(bool includeDeletes = true, int count = 5000)
     {
         if (!TableExists)
@@ -241,11 +266,13 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
             long token = reader.GetInt64(tokenColumn);
             Enum.TryParse(reader.GetString(actionColumn), out ChangeType changeType);
             yield return CreateRow();
+
             IChangeLogRow CreateRow()
             {
                 try
                 {
-                    ChangeLogRow row = changeType switch {
+                    ChangeLogRow row = changeType switch
+                    {
                         ChangeType.Create => new CreateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
                         ChangeType.Update => new UpdateChangeLogRow(context, area.Name, token, reader.GetGuid(idColumn), reader.GetString(contentTypeColumn), reader.GetInt64(refColumn), reader.GetInt32(versionColumn), reader.GetDateTime(createdColumn), reader.GetDateTime(updatedColumn), reader.GetSqlBinary(dataColumn).Value),
                         ChangeType.Delete => new DeleteChangeLogRow(context, area.Name, token, reader.GetGuid(fidColumn), ExtractContentType(reader.GetSqlBinary(diffColumn).Value)),
@@ -256,8 +283,8 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
                     {
                         using JsonReader r = context.Serializer.OpenReader(value);
                         JObject json = JObject.Load(r);
-                        return  json.Property(diffFieldName)?.ToObject<string>()
-                                             ?? string.Empty;
+                        return json.Property(diffFieldName)?.ToObject<string>()
+                               ?? string.Empty;
                     }
 
                     return row;
@@ -269,6 +296,25 @@ public partial class SqlServerStorageAreaLog : IStorageAreaLog
             }
         }
     }
+
+    private IEnumerable<ChangeLogEntry> EnumeratePureReader(SqlDataReader reader)
+        {
+            int tokenColumn = reader.GetOrdinal("Id");
+            int actionColumn = reader.GetOrdinal("Action");
+            int fidColumn = reader.GetOrdinal(StorageField.Fid.ToString());
+            int dataColumn = reader.GetOrdinal(StorageField.Data.ToString());
+
+            while (reader.Read())
+            {
+                long token = reader.GetInt64(tokenColumn);
+                Guid id = reader.GetGuid(fidColumn);
+                Enum.TryParse(reader.GetString(actionColumn), out ChangeType changeType);
+                byte[] data = reader.GetSqlBinary(dataColumn).Value;
+                using JsonReader r = context.Serializer.OpenReader(data);
+                JObject json = JObject.Load(r);
+                yield return new (token, id, changeType, json);
+            }
+        }
 
 
     public IStorageAreaLogObservable OpenObservable(long initialGeneration = 0, bool includeDeletes = true)
@@ -291,6 +337,8 @@ internal class NullStorageAreaLogReader : IStorageAreaLogReader
 
     public void Dispose() {}
 }
+
+public record struct ChangeLogEntry(long Generation, Guid Id, ChangeType Action, JObject Data);
 
 internal class StorageAreaLogReader : IStorageAreaLogReader
 {

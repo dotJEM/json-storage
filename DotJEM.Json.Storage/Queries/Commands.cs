@@ -251,6 +251,18 @@ namespace DotJEM.Json.Storage.Queries
             this["SelectChanges"] = Vars.Format("SELECT * FROM {logTableFullName} WHERE [{id}] > @token;");
             this["SelectMaxGeneration"] = Vars.Format("SELECT MAX([{id}]) FROM {logTableFullName}");
 
+            this["SelectChangesPureById"] = Vars.Format(@"
+                SELECT TOP (@count)
+	                {logTableFullName}.Id,
+	                {logTableFullName}.[{fid}], 
+	                {logTableFullName}.Action, 
+	                {logTableFullName}.Data
+                FROM ( 
+	                FROM {logTableFullName}
+	                WHERE [{id}] > @token AND [{fid}] = @fid
+                ORDER BY Token
+            ");
+
             this["SelectChangesWithDeletes"] = Vars.Format(@"
                 SELECT TOP (@count)
 	                {tableFullName}.Id,
