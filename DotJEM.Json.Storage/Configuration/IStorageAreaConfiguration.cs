@@ -80,7 +80,7 @@ namespace DotJEM.Json.Storage.Configuration
 
         public bool HistoryEnabled { get; private set; }
         public bool UpdateOnMigrate { get; private set; }
-        public IChangeLogDataProvider ChangeDataProvider { get; private set; }
+        public IChangeLogDataProvider ChangeDataProvider { get; private set; } = new NullChangeLogDataProvider();
 
         public IEnumerable<IJObjectDecorator> Decorators { get { return decorators.AsReadOnly(); } }
 
