@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Transactions;
 using DotJEM.Json.Storage.Adapter;
+using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
 using DotJEM.Json.Storage.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -15,6 +16,18 @@ namespace DotJEM.Json.Storage.Test
     [TestFixture]
     public class SqlServerStorageContextTest
     {
+        [Test]
+        public void TestSQL2022()
+        {
+
+            IStorageContext context = new SqlServerStorageContext("Data Source=RDN-CLUD-SQL-01;Initial Catalog=nsw_db;User Id=ssn_user;Password=JpDDbsX36q7mqdUMfvEzuvbj5n4phLPxBwW8ABgcP7zTuikXCJVSjH9xMLdTKWSen3QmtyCr5kNHErFG;");
+
+            IStorageArea area = context.Area();
+            IEnumerable<JObject> raw = area.Get();
+            IStorageChangeCollection result = area.Log.Get(false);
+        }
+
+
         [TestCase("item")]
         [TestCase("other")]
         [TestCase("data")]

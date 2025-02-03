@@ -1,22 +1,16 @@
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
-using System.Runtime.Remoting.Contexts;
-using System.Security.Cryptography.X509Certificates;
-using DotJEM.Json.Storage.Adapter.Materialize;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog;
 using DotJEM.Json.Storage.Adapter.Materialize.ChanceLog.ChangeObjects;
-using DotJEM.Json.Storage.Adapter.Materialize.Log;
 using DotJEM.Json.Storage.Adapter.Observable;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using static DotJEM.Json.Storage.Adapter.Materialize.SqlServerJsonEntityFactory;
 
 namespace DotJEM.Json.Storage.Adapter;
 

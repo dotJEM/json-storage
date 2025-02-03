@@ -1,14 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
-using System.Reflection.Emit;
 using DotJEM.Json.Storage.Adapter;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Migration;
+using Microsoft.Data.SqlClient;
 
 namespace DotJEM.Json.Storage
 {
@@ -69,7 +66,7 @@ namespace DotJEM.Json.Storage
             return new SqlConnection(connectionString);
         }
 
-  internal SqlConnection OpenConnection()
+        internal SqlConnection OpenConnection()
         {
             SqlConnection conn = this.Connection();
             conn.Open();
@@ -124,7 +121,7 @@ namespace DotJEM.Json.Storage
 
         private Dictionary<string, IAreaInformation> Build(IEnumerable<string> names)
         {
-            Queue<string> queue = new Queue<string>(names.OrderByDescending(name => name.Count(c => c=='.')));
+            Queue<string> queue = new Queue<string>(names.OrderByDescending(name => name.Count(c => c == '.')));
 
             Dictionary<string, AreaInformation> areas = new Dictionary<string, AreaInformation>();
 
@@ -161,7 +158,7 @@ namespace DotJEM.Json.Storage
                 if (!areas.ContainsKey(name))
                 {
                     string areaName = string.Join(".", parts.Take(parts.Length - 1));
-                    if(!areas.TryGetValue(areaName, out AreaInformation area))
+                    if (!areas.TryGetValue(areaName, out AreaInformation area))
                         areas.Add(areaName, area = new AreaInformation(areaName));
                     area.AddTable(name);
                 }

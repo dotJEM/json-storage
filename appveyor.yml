@@ -1,4 +1,4 @@
-version: 0.4.{build}
+version: 1.0.{build}
 image: Visual Studio 2022
 
 configuration: Release
@@ -12,6 +12,15 @@ init:
 
 nuget:
   disable_publish_on_pr: true
+  
+dotnet_csproj:
+  patch: true
+  file: '**\*.csproj'
+  version: '{version}'
+  package_version: '1.0.{build}'
+  assembly_version: '1.0.{build}'
+  file_version: '1.0.{build}'
+  informational_version: '{version}'
 
 services:
   - mssql2017
@@ -53,8 +62,9 @@ on_success:
 
 deploy:
   provider: NuGet
+  artifact: /DotJEM /DotJEM.Json.Storage\..*.nupkg/ 
   api_key:
-    secure: bFNGQmfzcl8+qMzGRyjuppyao5/sQlK4w3ikBuYi4qQTniVxdfoyWImJwHHktQm0
+    secure: L0jKrFMbCq8CU/nA0AluItYUG3KK27qFxCxmEmg2Lc/Js9vyVtNCeABGmr/JG8Dr
   skip_symbols: true
   on:
     branch: master 

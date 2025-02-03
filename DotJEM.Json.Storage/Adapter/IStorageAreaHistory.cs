@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
 using DotJEM.Json.Storage.Configuration;
 using DotJEM.Json.Storage.Queries;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json.Linq;
 
 namespace DotJEM.Json.Storage.Adapter
