@@ -59,10 +59,12 @@ on_success:
 - bash copilot
 
 
+artifacts:
+  - path: '.\**\Release\DotJEM\.Json\.Storage\.\d+\.\d+\.\d+\.nupkg'
+    name: NuGet Packages
 
 deploy:
   provider: NuGet
-  artifact: '.\**\Release\DotJEM\.Json\.Storage\.\d+\.\d+\.\d+\.nupkg' 
   api_key:
     secure: L0jKrFMbCq8CU/nA0AluItYUG3KK27qFxCxmEmg2Lc/Js9vyVtNCeABGmr/JG8Dr
   skip_symbols: true
