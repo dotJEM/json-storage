@@ -65,8 +65,9 @@ artifacts:
 
 deploy:
   provider: NuGet
+  artifact: /DotJEM\.Json\.Storage.*/
   api_key:
-    secure: L0jKrFMbCq8CU/nA0AluItYUG3KK27qFxCxmEmg2Lc/Js9vyVtNCeABGmr/JG8Dr
+    secure: KEHWtW02rf5aCAlwchP0Siow5EA24hwtm09uvsR58bMWirJ8uXl1SidBnNCfJ3cw
   skip_symbols: true
   on:
     branch: master 
