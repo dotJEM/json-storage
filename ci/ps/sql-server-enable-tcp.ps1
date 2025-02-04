@@ -2,7 +2,7 @@
 [reflection.assembly]::LoadWithPartialName("Microsoft.SqlServer.SqlWmiManagement") | Out-Null
 
 $server = $env:COMPUTERNAME
-$instance = 'SQL2017'
+$instance = 'SQL2019'
 $smo = 'Microsoft.SqlServer.Management.Smo.'
 $wmi = new-object ($smo + 'Wmi.ManagedComputer')
 

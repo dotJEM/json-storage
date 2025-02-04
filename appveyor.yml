@@ -9,6 +9,7 @@ environment:
 init:
 - ps: $env:nuget_ver=$env:appveyor_build_version
 - ps: Update-AppveyorBuild -Version "$env:appveyor_build_version+sha.$($env:appveyor_repo_commit.substring(0,7))"
+- ps: net start MSSQL$SQL2019
 
 nuget:
   disable_publish_on_pr: true
@@ -22,8 +23,6 @@ dotnet_csproj:
   file_version: '1.0.{build}'
   informational_version: '{version}'
 
-services:
-  - mssql2017
 
 assembly_info:
   patch: true
@@ -50,7 +49,7 @@ build:
 before_test:
   - ps: .\ci\ps\sql-server-enable-tcp.ps1
   - ps: .\ci\ps\sql-server-create-db.ps1
-  - cmd: sqlcmd -S ".\SQL2017" -U "sa" -P "Password12!" -Q "SELECT * FROM information_schema.tables;" -d "json"
+  - cmd: sqlcmd -S ".\SQL2019" -U "sa" -P "Password12!" -Q "SELECT * FROM information_schema.tables;" -d "json"
 
 test:
   assemblies:
