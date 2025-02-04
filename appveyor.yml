@@ -60,12 +60,12 @@ on_success:
 
 
 artifacts:
-  - path: '.\**\Release\DotJEM\.Json\.Storage\.\d+\.\d+\.\d+\.nupkg'
+  - path: '.\**\.*.nupkg'
     name: NuGet Packages
 
 deploy:
   provider: NuGet
-  artifact: /.*DotJEM\.Json\.Storage.*/
+  artifact: 'DotJEM.Json.Storage\bin\Release\DotJEM.Json.Storage.1.0.0.nupkg'
   api_key:
     secure: KEHWtW02rf5aCAlwchP0Siow5EA24hwtm09uvsR58bMWirJ8uXl1SidBnNCfJ3cw
   skip_symbols: true
