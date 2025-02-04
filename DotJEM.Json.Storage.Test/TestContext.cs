@@ -9,7 +9,7 @@ namespace DotJEM.Json.Storage.Test
     {
         public static string ConnectionString 
             => Environment.GetEnvironmentVariable("appveyor_sqlconnection") 
-            ?? "Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True";
+            ?? "Data Source=.\\DEV;Initial Catalog=json;Integrated Security=True;TrustServerCertificate=True";
 
         public static void DropArea(string area)
         {
