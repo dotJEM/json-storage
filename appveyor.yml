@@ -60,7 +60,7 @@ on_success:
 
 deploy:
   provider: NuGet
-  artifact: /**/DotJEM.Json.Storage(\.\d+)+.nupkg/ 
+  artifact: /DotJEM\.Json\.Storage\.\d+\.\d+\.\d+\.nupkg/ 
   api_key:
     secure: L0jKrFMbCq8CU/nA0AluItYUG3KK27qFxCxmEmg2Lc/Js9vyVtNCeABGmr/JG8Dr
   skip_symbols: true
