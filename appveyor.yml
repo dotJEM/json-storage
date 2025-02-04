@@ -42,6 +42,9 @@ build:
   publish_nuget: true
   publish_nuget_symbols: true
 
+after_build:
+  - dotnet pack "DotJEM.Json.Storage\DotJEM.Json.Storage.csproj" --configuration Release --include-symbols --output "C:\Users\appveyor\AppData\Local\Temp\1\97r8s5qo1v" --no-build
+
 before_test:
   - ps: .\ci\ps\sql-server-enable-tcp.ps1
   - ps: .\ci\ps\sql-server-create-db.ps1
