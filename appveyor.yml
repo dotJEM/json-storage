@@ -1,4 +1,4 @@
-version: 1.0.{build}
+version: 1.1.{build}
 image: Visual Studio 2022
 
 configuration: Release
@@ -18,9 +18,9 @@ dotnet_csproj:
   patch: true
   file: '**\*.csproj'
   version: '{version}'
-  package_version: '1.0.{build}'
-  assembly_version: '1.0.{build}'
-  file_version: '1.0.{build}'
+  package_version: '1.1.{build}'
+  assembly_version: '1.1.{build}'
+  file_version: '1.1.{build}'
   informational_version: '{version}'
 
 services:
