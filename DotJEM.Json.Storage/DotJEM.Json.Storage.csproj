@@ -7,6 +7,14 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <LangVersion>latest</LangVersion>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+
+	  <Version></Version>
+	  <PackageVersion></PackageVersion>
+	  <InformationalVersion></InformationalVersion>
+	  <PackageVersion></PackageVersion>
+	  <AssemblyVersion></AssemblyVersion>
+	  <FileVersion></FileVersion>
+
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Entity\**" />
