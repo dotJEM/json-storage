@@ -65,7 +65,7 @@ artifacts:
 
 deploy:
   provider: NuGet
-  artifact: 'DotJEM.Json.Storage\bin\Release\DotJEM.Json.Storage.1.0.0.nupkg'
+  artifact: 'DotJEM.Json.Storage\bin\Release\DotJEM.Json.Storage.{version}.nupkg'
   api_key:
     secure: Rk+qejITCX161Ay+DUo104g6CNKchlnVL0dRrhQKxZ9tc79EwSuXOk7oqbI+z5SN
   skip_symbols: true
