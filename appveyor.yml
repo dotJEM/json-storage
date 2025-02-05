@@ -40,7 +40,7 @@ before_build:
 build:
   project: DotJEM.Json.Storage.sln
   publish_nuget: true
-  publish_nuget_symbols: true
+  publish_nuget_symbols: false
 
 after_build:
   - dotnet pack "DotJEM.Json.Storage\DotJEM.Json.Storage.csproj" --configuration Release --include-symbols
